@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Santi Cobros</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@500&display=swap" />
+  </head>
+  <body>
+<main>
+  <header>
+    <h1>Santi</h1>
+    <p class="sub">Ejemplo con datos de mentira. En Clientes, tocá uno para ver su menú de hoy.</p>
+  </header>
+  <div class="search">
+    <label for="search">Buscar cliente</label>
+    <input id="search" type="search" placeholder="Nombre o calle, por ejemplo Avenida 18 de Julio" autocomplete="off">
+  </div>
+  <div id="results" aria-live="polite"></div>
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab" role="tab" id="tab-pagos" aria-selected="true">Pagos</button>
+    <button type="button" class="tab" role="tab" id="tab-clientes" aria-selected="false">Clientes</button>
+    <button type="button" class="tab" role="tab" id="tab-historial" aria-selected="false">Historial</button>
+    <div class="more">
+      <button type="button" class="tab more-btn" id="more-btn" aria-haspopup="true" aria-expanded="false" aria-label="Más secciones">☰</button>
+      <div class="more-menu" id="more-menu" hidden>
+        <button type="button" class="more-item" role="tab" id="tab-menu" aria-selected="false">Menú de la semana</button>
+      </div>
+    </div>
+  </div>
+  <div class="pane" id="pane-pagos">
+    <div class="total"><span>Nos deben en total</span><strong id="total">$ 0</strong></div>
+    <ul id="list"></ul>
+    <button type="button" class="reset" id="reset">Reiniciar ejemplo</button>
+  </div>
+  <div class="pane" id="pane-menu" hidden>
+    <div id="menus" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+  <div class="pane" id="pane-clientes" hidden>
+    <button type="button" id="addtoggle">+ Ingresar cliente</button>
+    <form class="addform" id="addform" hidden>
+      <div class="f">
+        <label for="add-name">Nombre del cliente</label>
+        <input id="add-name" type="text" autocomplete="off" placeholder="Ej: Carlos">
+      </div>
+      <div class="f">
+        <label for="add-addr">Calle o descripción</label>
+        <input id="add-addr" type="text" autocomplete="off" placeholder="Ej: Avenida 18 de Julio 1234, casa verde">
+      </div>
+      <span class="menu-note">Si dejás el nombre vacío, el cliente se llama como la calle.</span>
+      <span class="err" id="add-err" hidden></span>
+      <div class="mactions">
+        <button type="submit">Guardar cliente</button>
+        <button type="button" class="btn-ghost" id="add-cancel">Cancelar</button>
+      </div>
+    </form>
+    <span class="addmsg" id="addmsg" hidden></span>
+    <ul id="clientlist"></ul>
+  </div>
+  <div class="pane" id="pane-historial" hidden>
+    <div class="total"><span>Cobrado en total</span><strong id="paid-total">$ 0</strong></div>
+    <div class="search">
+      <label for="hist-filter">Ver pagos de</label>
+      <select id="hist-filter"></select>
+    </div>
+    <div class="pay-list" id="paylist"></div>
+  </div>
+</main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
