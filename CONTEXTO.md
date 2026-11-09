@@ -1,6 +1,6 @@
 # frontend-santi
 
-Demo para mostrar a un amigo (Santi). **Solo frontend, sin backend**: todo con datos de mentira, guardados en el navegador (localStorage). Vite + JS plano (sin React), tres archivos: `index.html`, `src/main.js`, `src/styles.css`.
+Demo para mostrar a un amigo (Santi). Datos de ejemplo (clientes, pagos, menús) **guardados en el backend** (`backend/src/modules/santi`, tablas `saas_santi_*`, migración 121, rutas `/api/v1/santi/*`, sin login). El frontend pide `GET /santi/state` al abrir y cada acción (pago, cliente, menú, historial) vuelve a traer el estado. "Reiniciar ejemplo" = `POST /santi/reset` (tarda unos segundos). Vite + JS plano (sin React), tres archivos: `index.html`, `src/main.js`, `src/styles.css`.
 
 ## Qué tiene
 - **Buscador de arriba**: busca cliente por nombre o calle; al tocar un resultado se despliega todo (si pagó, menú de la semana, qué compró, pagos y recibos, menú de hoy).
@@ -14,5 +14,5 @@ Demo para mostrar a un amigo (Santi). **Solo frontend, sin backend**: todo con d
 - En el repo hay que activar Settings → Pages → Source: GitHub Actions.
 
 ## Historia
-- Nació como un Artifact de claude.ai (https://claude.ai/artifact/WdT1PNvqnXHdoWKnd1gKNd) y se pasó a este proyecto el 09/11/2026 tal cual (mismo comportamiento).
+- El backend carga solo los datos de ejemplo si las tablas están vacías. Nació como un Artifact de claude.ai (https://claude.ai/artifact/WdT1PNvqnXHdoWKnd1gKNd) y se pasó a este proyecto el 09/11/2026 tal cual (mismo comportamiento).
 - Si se quiere crecer en serio: migrar a React/TS como los demás frontends y, recién ahí, backend.

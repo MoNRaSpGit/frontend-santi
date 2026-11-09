@@ -165,3 +165,5 @@ button:disabled { background: transparent; color: var(--muted); cursor: default;
 .btn-wa { background: #25a244; color: #fff; }
 .btn-wa:disabled { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
 .reset { align-self: center; background: none; color: var(--muted); text-decoration: underline; font-weight: 500; }
+.status { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+.status.err { color: var(--debt); border-color: var(--debt); }

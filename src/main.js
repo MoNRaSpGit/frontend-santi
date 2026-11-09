@@ -1,89 +1,78 @@
 import "./styles.css";
 
-var KEY = "santi-cobros-v3";
-var INITIAL = [
-  { id: 1, name: "Juan", address: "Avenida 18 de Julio 1234", owes: 1500, menu: { name: "Milanesa completa", items: ["Milanesa de carne con huevo", "Papas fritas", "Ensalada mixta", "Flan casero"], note: "Sin cebolla" } },
-  { id: 2, name: "María", address: "Bulevar Artigas 850", owes: 2300, menu: { name: "Menú vegetariano", items: ["Tarta de zapallitos", "Arroz con verduras", "Ensalada de rúcula", "Fruta de estación"], note: "Entregado 12:15" } },
-  { id: 3, name: "Ana", address: "Calle Colonia 455", owes: 1500, menu: { name: "Pasta del día", items: ["Ñoquis con salsa fileto", "Pan de campo", "Ensalada de tomate", "Budín de pan"], note: "Salsa aparte" } },
-  { id: 4, name: "Pedro", address: "Avenida Italia 2210", owes: 800, menu: { name: "Menú liviano", items: ["Pollo al horno", "Puré de calabaza", "Gelatina"], note: "Porción chica" } },
-  { id: 5, name: "Lucía", address: "Calle Soriano 612", owes: 3200, menu: { name: "Parrillada para dos", items: ["Asado y chorizo", "Ensalada rusa", "Boniato al horno", "Dulce de leche con queso"], note: "Entregado 13:00" } }
-];
 var openId = null;
 
-// Historial de lo que pidió cada cliente (de ejemplo): [día, plato].
-var DEFAULT_HISTORY = {
-  1: [["Lunes", "Pollo al horno con papas"], ["Martes", "Asado con ensalada"], ["Miércoles", "Ravioles con salsa fileto"], ["Jueves", "Milanesa con puré"], ["Viernes", "Pizza de muzzarella"]],
-  2: [["Lunes", "Tarta de zapallitos"], ["Martes", "Arroz con verduras"], ["Miércoles", "Ensalada de rúcula y queso"], ["Jueves", "Ñoquis de calabaza"], ["Viernes", "Tortilla de espinaca"]],
-  3: [["Lunes", "Ñoquis con fileto"], ["Martes", "Ravioles de ricota"], ["Miércoles", "Milanesa de pollo"], ["Jueves", "Tallarines con crema"], ["Viernes", "Pescado al horno"]],
-  4: [["Lunes", "Pollo al horno"], ["Martes", "Puré de calabaza con carne"], ["Miércoles", "Sopa de verduras"], ["Jueves", "Arroz con pollo"], ["Viernes", "Gelatina y fruta"]],
-  5: [["Lunes", "Parrillada para dos"], ["Martes", "Milanesa napolitana"], ["Miércoles", "Asado y chorizo"], ["Jueves", "Ravioles con crema"], ["Viernes", "Hamburguesa casera"]]
-};
-// El historial se puede editar y queda guardado en el navegador.
-var HKEY = "santi-historial-v1";
-var histData = loadHistory();
+// Todo viene del backend (GET /santi/state). Estas variables se rellenan en applyState().
+var clients = [];
+var MENUS = [];
+var weekOptions = [];
+var weekly = {};
+var histData = {};
+var payData = {};
 var editing = null;
-function loadHistory() {
-  try { var raw = localStorage.getItem(HKEY); if (raw) return JSON.parse(raw); } catch (e) {}
-  return JSON.parse(JSON.stringify(DEFAULT_HISTORY));
-}
-function saveHistory() { try { localStorage.setItem(HKEY, JSON.stringify(histData)); } catch (e) {} }
-
-var MENUS = [
-  { id: 1, name: "Menú ravioli", items: ["Ravioles de ricota y espinaca", "Salsa fileto o crema", "Pan de campo", "Ensalada de tomate", "Flan casero"] },
-  { id: 2, name: "Menú milanesas", items: ["Milanesa de carne o pollo", "Papas fritas o puré", "Ensalada mixta", "Fruta de estación"] },
-  { id: 3, name: "Menú parrilla", items: ["Asado, chorizo y morcilla", "Ensalada rusa", "Boniato al horno", "Dulce de leche con queso"] },
-  { id: 4, name: "Menú liviano", items: ["Pollo al horno", "Verduras salteadas", "Arroz integral", "Gelatina"] },
-  { id: 5, name: "Menú pollo", items: ["Pollo a la cacerola", "Arroz con arvejas", "Ensalada de zanahoria", "Fruta de estación"] }
-];
-// Cada semana hay 3 opciones (ids de MENUS). Los clientes eligen entre estas 3.
-var WOKEY = "santi-opciones-v1";
-var weekOptions = loadWeekOptions();
 var sentWeek = false;
-function loadWeekOptions() {
-  try { var raw = localStorage.getItem(WOKEY); if (raw) return JSON.parse(raw); } catch (e) {}
-  return [1, 5, 2];
+
+var API_BASE = import.meta.env.VITE_API_URL || "https://saasproback.onrender.com/api/v1";
+
+function setStatus(text, isError) {
+  var el = document.getElementById("status");
+  el.hidden = !text;
+  el.textContent = text || "";
+  el.className = isError ? "status err" : "status";
 }
-function saveWeekOptions() { try { localStorage.setItem(WOKEY, JSON.stringify(weekOptions)); } catch (e) {} }
+
+// Pide al backend y vuelve a dibujar todo con el estado nuevo que devuelve.
+function call(method, path, body) {
+  return fetch(API_BASE + "/santi" + path, {
+    method: method,
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  })
+    .then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error(data && data.message ? [].concat(data.message).join(" ") : "Error " + res.status);
+        return data;
+      });
+    })
+    .then(function (state) {
+      applyState(state);
+      setStatus("");
+    })
+    .catch(function (e) {
+      setStatus("No se pudo guardar: " + e.message, true);
+    });
+}
+
+function applyState(state) {
+  clients = state.clients;
+  MENUS = state.menus;
+  weekOptions = state.menus.filter(function (m) { return m.inWeek; }).map(function (m) { return m.id; });
+  weekly = {};
+  clients.forEach(function (c) { if (c.weeklyMenuId != null) weekly[c.id] = c.weeklyMenuId; });
+  payData = {};
+  state.payments.forEach(function (p) {
+    (payData[p.clientId] = payData[p.clientId] || []).push({ date: p.date, amount: p.amount, method: p.method });
+  });
+  histData = {};
+  state.history.forEach(function (h) {
+    (histData[h.clientId] = histData[h.clientId] || []).push([h.day, h.dish]);
+  });
+  render();
+  renderMenus();
+}
+
 function weekMenus() { return MENUS.filter(function (m) { return weekOptions.indexOf(m.id) !== -1; }); }
 
-// Menú que cada cliente confirmó para toda la semana: { idCliente: idMenu }.
-var WKEY = "santi-semana-v1";
-var weekly = loadWeekly();
-function loadWeekly() {
-  try { var raw = localStorage.getItem(WKEY); if (raw) return JSON.parse(raw); } catch (e) {}
-  return { 1: 1 };
-}
-function saveWeekly() { try { localStorage.setItem(WKEY, JSON.stringify(weekly)); } catch (e) {} }
 function menuName(id) {
   for (var i = 0; i < MENUS.length; i++) if (MENUS[i].id === id) return MENUS[i].name;
   return "";
 }
-var clients = load();
-
-// Pagos hechos por cada cliente: { idCliente: [{ date, amount, method }] }. Se guardan en el navegador.
-var PKEY = "santi-pagos-v1";
-var DEFAULT_PAYMENTS = {
-  1: [{ date: "28/10/2026", amount: 1800, method: "Efectivo" }, { date: "21/10/2026", amount: 1500, method: "Transferencia" }],
-  2: [{ date: "30/10/2026", amount: 2300, method: "Transferencia" }, { date: "23/10/2026", amount: 2300, method: "Transferencia" }],
-  3: [{ date: "29/10/2026", amount: 1500, method: "Efectivo" }],
-  4: [{ date: "27/10/2026", amount: 800, method: "Efectivo" }, { date: "20/10/2026", amount: 800, method: "Efectivo" }],
-  5: [{ date: "31/10/2026", amount: 3200, method: "Transferencia" }]
-};
-var payData = loadPayments();
-function loadPayments() {
-  try { var raw = localStorage.getItem(PKEY); if (raw) return JSON.parse(raw); } catch (e) {}
-  return JSON.parse(JSON.stringify(DEFAULT_PAYMENTS));
-}
-function savePayments() { try { localStorage.setItem(PKEY, JSON.stringify(payData)); } catch (e) {} }
+// Pagos: el backend guarda el pago con la fecha de hoy y deja al cliente en cero.
 function registerPayment(c) {
   if (c.owes <= 0) return;
-  if (!payData[c.id]) payData[c.id] = [];
-  payData[c.id].unshift({ date: new Date().toLocaleDateString("es-UY"), amount: c.owes, method: "Efectivo" });
-  c.owes = 0;
-  save(); savePayments(); render();
+  call("POST", "/clients/" + c.id + "/payments");
 }
 
-// Recibos por WhatsApp (ficticio: no abre WhatsApp ni manda nada).
 var receiptOpen = null;
 var receiptSent = {};
 function receiptText(c, pay) {
@@ -151,11 +140,6 @@ function paymentsSection(c) {
   return wrap;
 }
 
-function load() {
-  try { var raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch (e) {}
-  return INITIAL.map(function (c) { return Object.assign({}, c); });
-}
-function save() { try { localStorage.setItem(KEY, JSON.stringify(clients)); } catch (e) {} }
 function money(n) { return "$ " + n.toLocaleString("es-UY"); }
 
 function render() { renderPagos(); renderClientes(); }
@@ -256,8 +240,7 @@ function renderClientes() {
         sel.appendChild(o);
       });
       sel.addEventListener("change", function () {
-        if (sel.value) weekly[c.id] = Number(sel.value); else delete weekly[c.id];
-        saveWeekly(); renderClientes(); renderMenus();
+        call("PUT", "/clients/" + c.id + "/weekly", { menuId: sel.value ? Number(sel.value) : null });
       });
       pick.appendChild(lbl); pick.appendChild(sel);
       li.appendChild(pick);
@@ -294,8 +277,8 @@ function renderClientes() {
           ok.type = "button"; ok.textContent = "Guardar";
           function commit() {
             var v = inp.value.trim();
-            if (v) { histData[c.id][idx][1] = v; saveHistory(); }
-            editing = null; renderClientes();
+            editing = null;
+            if (v) call("PUT", "/clients/" + c.id + "/history/" + encodeURIComponent(h[0]), { dish: v }); else renderClientes();
           }
           ok.addEventListener("click", commit);
           inp.addEventListener("keydown", function (e) {
@@ -326,9 +309,8 @@ function renderClientes() {
   renderHistorial();
 }
 document.getElementById("reset").addEventListener("click", function () {
-  clients = INITIAL.map(function (c) { return Object.assign({}, c); }); save(); render();
+  call("POST", "/reset");
 });
-render();
 
 /* ---- Pestañas y menús (solo visual, el envío a WhatsApp es de mentira) ---- */
 function renderMenus() {
@@ -381,17 +363,16 @@ function renderMenus() {
     if (inWeek) {
       btn.textContent = "Quitar de la semana";
       btn.addEventListener("click", function () {
-        weekOptions = weekOptions.filter(function (id) { return id !== m.id; });
-        Object.keys(weekly).forEach(function (k) { if (weekly[k] === m.id) delete weekly[k]; });
-        sentWeek = false; saveWeekOptions(); saveWeekly(); renderMenus(); renderClientes();
+        sentWeek = false;
+        call("PUT", "/menus/" + m.id + "/week", { inWeek: false });
       });
     } else {
       var full = weekOptions.length >= 3;
       btn.disabled = full;
       btn.textContent = full ? "Ya hay 3 · quitá una primero" : "Agregar a la semana";
       btn.addEventListener("click", function () {
-        weekOptions.push(m.id);
-        sentWeek = false; saveWeekOptions(); renderMenus(); renderClientes();
+        sentWeek = false;
+        call("PUT", "/menus/" + m.id + "/week", { inWeek: true });
       });
     }
     actions.appendChild(btn);
@@ -530,16 +511,13 @@ addForm.addEventListener("submit", function (e) {
     err.textContent = "Poné al menos el nombre o la calle."; err.hidden = false; return;
   }
   err.hidden = true;
-  var id = clients.reduce(function (m, c) { return Math.max(m, c.id); }, 0) + 1;
   var finalName = name || addr;
-  clients.push({ id: id, name: finalName, address: addr, owes: 0, menu: { name: "Todavía sin menú hoy", items: [], note: "No se le mandó nada hoy" } });
-  histData[id] = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"].map(function (d) { return [d, "Sin pedido"]; });
-  save(); saveHistory();
-  nameIn.value = ""; addrIn.value = "";
-  addForm.hidden = true;
-  addMsg.textContent = "Cliente agregado: " + finalName + ". Ya lo podés buscar arriba.";
-  addMsg.hidden = false;
-  render();
+  call("POST", "/clients", { name: name, address: addr }).then(function () {
+    nameIn.value = ""; addrIn.value = "";
+    addForm.hidden = true;
+    addMsg.textContent = "Cliente agregado: " + finalName + ". Ya lo podés buscar arriba.";
+    addMsg.hidden = false;
+  });
 });
 
 function showTab(which) {
@@ -601,4 +579,8 @@ document.getElementById("hist-filter").addEventListener("change", function () { 
 document.getElementById("tab-pagos").addEventListener("click", function () { showTab("pagos"); });
 document.getElementById("tab-clientes").addEventListener("click", function () { showTab("clientes"); });
 document.getElementById("tab-menu").addEventListener("click", function () { showTab("menu"); });
-renderMenus();
+setStatus("Cargando datos... (si el servidor estaba dormido puede tardar unos segundos)");
+fetch(API_BASE + "/santi/state")
+  .then(function (res) { if (!res.ok) throw new Error("Error " + res.status); return res.json(); })
+  .then(function (state) { applyState(state); setStatus(""); })
+  .catch(function (e) { setStatus("No se pudo cargar: " + e.message + ". Probá recargar la página.", true); });
