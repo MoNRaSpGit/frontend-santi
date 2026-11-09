@@ -307,6 +307,7 @@ function renderClientes() {
   });
   renderSearch();
   renderHistorial();
+  renderPanel();
 }
 document.getElementById("reset").addEventListener("click", function () {
   call("POST", "/reset");
@@ -521,7 +522,7 @@ addForm.addEventListener("submit", function (e) {
 });
 
 function showTab(which) {
-  ["pagos", "menu", "clientes", "historial"].forEach(function (t) {
+  ["pagos", "menu", "clientes", "historial", "panel"].forEach(function (t) {
     document.getElementById("pane-" + t).hidden = t !== which;
     document.getElementById("tab-" + t).setAttribute("aria-selected", String(t === which));
   });
@@ -542,6 +543,130 @@ document.getElementById("more-btn").addEventListener("click", function (e) {
 document.addEventListener("click", closeMore);
 document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMore(); });
 document.getElementById("tab-historial").addEventListener("click", function () { showTab("historial"); });
+document.getElementById("tab-panel").addEventListener("click", function () { showTab("panel"); });
+
+/* ---- Panel de control: lo vendido (cobrado) del mes, ganancia, grafica de 7 dias y movimientos ---- */
+var PROFIT = 0.3;
+var MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+var DAY_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+var showAllMov = false;
+var MOV_PREVIEW = 6;
+var SVG_NS = "http://www.w3.org/2000/svg";
+
+function parseDate(d) { var m = String(d).split("/"); return new Date(+m[2], +m[1] - 1, +m[0]); }
+function sameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+function svgEl(name, attrs) {
+  var el = document.createElementNS(SVG_NS, name);
+  Object.keys(attrs || {}).forEach(function (k) { el.setAttribute(k, attrs[k]); });
+  return el;
+}
+function smoothPath(pts) {
+  var d = "M " + pts[0].x + " " + pts[0].y;
+  for (var i = 0; i < pts.length - 1; i++) {
+    var mid = (pts[i].x + pts[i + 1].x) / 2;
+    d += " C " + mid + " " + pts[i].y + ", " + mid + " " + pts[i + 1].y + ", " + pts[i + 1].x + " " + pts[i + 1].y;
+  }
+  return d;
+}
+
+function renderPanel() {
+  var now = new Date();
+  var all = [];
+  clients.forEach(function (c) {
+    (payData[c.id] || []).forEach(function (p) { all.push({ c: c, pay: p, when: parseDate(p.date) }); });
+  });
+
+  // Mes actual
+  var month = all.filter(function (r) { return r.when.getFullYear() === now.getFullYear() && r.when.getMonth() === now.getMonth(); });
+  var sold = month.reduce(function (t, r) { return t + r.pay.amount; }, 0);
+  document.getElementById("panel-month").textContent = MONTHS[now.getMonth()] + " " + now.getFullYear();
+  document.getElementById("st-sold").textContent = money(sold);
+  document.getElementById("st-count").textContent = month.length + " cobro" + (month.length === 1 ? "" : "s");
+  document.getElementById("st-profit").textContent = money(Math.round(sold * PROFIT));
+  var debtors = clients.filter(function (c) { return c.owes > 0; });
+  document.getElementById("st-owed").textContent = money(clients.reduce(function (t, c) { return t + c.owes; }, 0));
+  document.getElementById("st-owed-n").textContent = debtors.length + " cliente" + (debtors.length === 1 ? "" : "s");
+
+  // Ultimos 7 dias
+  var buckets = [];
+  for (var i = 6; i >= 0; i--) {
+    var day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    var total = all.filter(function (r) { return sameDay(r.when, day); }).reduce(function (t, r) { return t + r.pay.amount; }, 0);
+    buckets.push({ label: i === 0 ? "Hoy" : DAY_SHORT[day.getDay()], total: total, isToday: i === 0 });
+  }
+  drawChart(buckets);
+
+  // Movimientos del mes, del mas nuevo al mas viejo
+  month.sort(function (a, b) { return b.when - a.when; });
+  var toggle = document.getElementById("mov-toggle");
+  toggle.hidden = month.length <= MOV_PREVIEW;
+  toggle.textContent = showAllMov ? "Ver menos" : "Ver todos";
+  var shown = showAllMov ? month : month.slice(0, MOV_PREVIEW);
+  var box = document.getElementById("movlist");
+  box.innerHTML = "";
+  if (!shown.length) {
+    var none = document.createElement("div");
+    none.className = "empty"; none.textContent = "Todavía no hay cobros este mes.";
+    box.appendChild(none);
+    return;
+  }
+  shown.forEach(function (r) {
+    var item = document.createElement("div");
+    item.className = "pay-item";
+    var row = document.createElement("div");
+    row.className = "pay-row";
+    var main = document.createElement("div");
+    main.className = "pay-main";
+    var nm = document.createElement("span");
+    nm.className = "name"; nm.textContent = r.c.name;
+    var meta = document.createElement("span");
+    meta.className = "pay-meta"; meta.textContent = r.pay.date + " · " + r.pay.method;
+    main.appendChild(nm); main.appendChild(meta);
+    var am = document.createElement("span");
+    am.className = "pay-amount"; am.textContent = money(r.pay.amount);
+    row.appendChild(main); row.appendChild(am);
+    item.appendChild(row);
+    box.appendChild(item);
+  });
+}
+document.getElementById("mov-toggle").addEventListener("click", function () { showAllMov = !showAllMov; renderPanel(); });
+
+// Linea suave con area y puntos (mismo estilo que el grafico de la distribuidora).
+function drawChart(buckets) {
+  var W = 640, H = 230, PX = 34, PT = 42, PB = 34;
+  var innerW = W - PX * 2, innerH = H - PT - PB;
+  var max = Math.max.apply(null, buckets.map(function (b) { return b.total; }).concat([1]));
+  var pts = buckets.map(function (b, i) {
+    return { x: PX + (i / (buckets.length - 1)) * innerW, y: PT + innerH - (b.total / max) * innerH, b: b };
+  });
+  var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, class: "chart-svg", role: "img", "aria-label": "Ventas de los últimos 7 días" });
+  [0, 0.25, 0.5, 0.75, 1].forEach(function (f) {
+    var y = PT + innerH * f;
+    svg.appendChild(svgEl("line", { x1: PX, y1: y, x2: W - PX, y2: y, class: "chart-grid" }));
+  });
+  var line = smoothPath(pts);
+  var area = line + " L " + pts[pts.length - 1].x + " " + (PT + innerH) + " L " + pts[0].x + " " + (PT + innerH) + " Z";
+  svg.appendChild(svgEl("path", { d: area, class: "chart-area" }));
+  svg.appendChild(svgEl("path", { d: line, class: "chart-line" }));
+  pts.forEach(function (p) {
+    if (p.b.total > 0) {
+      var v = svgEl("text", { x: p.x, y: p.y - 12, "text-anchor": "middle", class: "chart-value" });
+      v.textContent = money(p.b.total);
+      svg.appendChild(v);
+    }
+    var dot = svgEl("circle", { cx: p.x, cy: p.y, r: p.b.isToday ? 6 : 4.5, class: "chart-dot" });
+    var tip = svgEl("title", {});
+    tip.textContent = p.b.label + ": " + money(p.b.total);
+    dot.appendChild(tip);
+    svg.appendChild(dot);
+    var lb = svgEl("text", { x: p.x, y: H - 10, "text-anchor": "middle", class: p.b.isToday ? "chart-label is-today" : "chart-label" });
+    lb.textContent = p.b.label;
+    svg.appendChild(lb);
+  });
+  var host = document.getElementById("chart");
+  host.innerHTML = "";
+  host.appendChild(svg);
+}
 
 /* ---- Pestaña Historial: todos los pagos, del más nuevo al más viejo ---- */
 var histFilter = "";

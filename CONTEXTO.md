@@ -7,6 +7,7 @@ Demo para mostrar a un amigo (Santi). Datos de ejemplo (clientes, pagos, menús)
 - **Pagos**: total que nos deben + "Registrar pago" (el pago queda anotado en el historial).
 - **Clientes**: lista, menú de hoy, menú de toda la semana (lista desplegable con las 3 opciones), historial de pedidos editable (eliges entre las 3 opciones), pagos y recibos, y "+ Ingresar cliente" (nombre y/o calle; si solo pone la calle, el cliente se llama así).
 - **Historial** (pestaña de pagos): todos los pagos, filtro por cliente, botón "Recibo por WhatsApp" con vista previa del mensaje (ficticio, no manda nada).
+- **Panel**: mes actual (vendí = cobrado, ganancia 30%, cuánto nos deben), gráfica ondulada de los últimos 7 días y movimientos del mes.
 - **☰ (hamburguesa)**: "Menú de la semana": 4+ menús, siempre 3 opciones activas por semana, botón "Enviar las 3 opciones al WhatsApp" (ficticio).
 
 ## Deploy

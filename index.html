@@ -24,6 +24,7 @@
     <button type="button" class="tab" role="tab" id="tab-pagos" aria-selected="true">Pagos</button>
     <button type="button" class="tab" role="tab" id="tab-clientes" aria-selected="false">Clientes</button>
     <button type="button" class="tab" role="tab" id="tab-historial" aria-selected="false">Historial</button>
+    <button type="button" class="tab" role="tab" id="tab-panel" aria-selected="false">Panel</button>
     <div class="more">
       <button type="button" class="tab more-btn" id="more-btn" aria-haspopup="true" aria-expanded="false" aria-label="Más secciones">☰</button>
       <div class="more-menu" id="more-menu" hidden>
@@ -59,6 +60,23 @@
     </form>
     <span class="addmsg" id="addmsg" hidden></span>
     <ul id="clientlist"></ul>
+  </div>
+  <div class="pane" id="pane-panel" hidden>
+    <h2 class="panel-month" id="panel-month"></h2>
+    <div class="stats">
+      <div class="stat"><span class="stat-label">Vendí este mes</span><strong class="stat-value" id="st-sold">$ 0</strong><span class="stat-hint" id="st-count"></span></div>
+      <div class="stat stat-profit"><span class="stat-label">Ganancia (30%)</span><strong class="stat-value" id="st-profit">$ 0</strong><span class="stat-hint">Estimada sobre lo vendido</span></div>
+      <div class="stat"><span class="stat-label">Nos deben</span><strong class="stat-value" id="st-owed">$ 0</strong><span class="stat-hint" id="st-owed-n"></span></div>
+    </div>
+    <div class="chart-card">
+      <h3 class="chart-title">Ventas de los últimos 7 días</h3>
+      <div id="chart"></div>
+    </div>
+    <div class="mhead">
+      <h3 class="chart-title">Movimientos del mes</h3>
+      <button type="button" class="btn-ghost btn-small" id="mov-toggle" hidden>Ver todos</button>
+    </div>
+    <div class="pay-list" id="movlist"></div>
   </div>
   <div class="pane" id="pane-historial" hidden>
     <div class="total"><span>Cobrado en total</span><strong id="paid-total">$ 0</strong></div>
