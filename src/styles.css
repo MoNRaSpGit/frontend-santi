@@ -242,3 +242,15 @@ button:disabled { background: transparent; color: var(--muted); cursor: default;
 .order-head .pay-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .order-card.is-open { border-color: var(--accent); }
 .order-detail { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 14px; border-top: 1px solid var(--line); }
+
+/* Cocina: platos de la semana */
+#pane-cocina { gap: 14px; }
+#menus { display: flex; flex-direction: column; gap: 14px; }
+.dishes { display: flex; flex-direction: column; gap: 8px; }
+.dish { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px; background: var(--surface); color: var(--muted); border: 1px solid var(--line); border-radius: 12px; text-align: left; font-weight: 500; }
+.dish.is-on { color: var(--fg); border: 2px solid var(--accent); font-weight: 700; }
+.dish-mark { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
+.dish.is-on .dish-mark { color: var(--accent); }
+.dish-add { display: flex; gap: 8px; }
+.dish-add input { flex: 1; min-width: 0; min-height: 44px; font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; }
+.dish-share { display: flex; justify-content: center; align-items: center; min-height: 48px; border-radius: 10px; font-weight: 700; text-decoration: none; }

@@ -172,7 +172,7 @@ function submit() {
   if (form.saving) return;
   var days = selectedDays();
   if (!days.length) return fail("Elegí al menos un día.");
-  if (days.some(function (d) { return !d.menuId; })) return fail("Primero elegí los menús en Configuración.");
+  if (days.some(function (d) { return !d.menuId; })) return fail("Primero elegí los platos en Cocina.");
   var isNew = form.clientId === "new";
   if (isNew && !form.newName.trim() && !form.newAddress.trim()) return fail("Poné el nombre o la dirección.");
 

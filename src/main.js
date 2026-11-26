@@ -241,68 +241,66 @@ document.getElementById("reset").addEventListener("click", function () {
 });
 
 /* ---- Pestañas y menús (solo visual, el envío a WhatsApp es de mentira) ---- */
+// Cocina → "Esta semana": que platos hay. Se marcan los que van y se pueden
+// agregar platos nuevos.
 function renderMenus() {
   var box = document.getElementById("menus");
+  var typed = document.getElementById("new-dish");
+  var pending = typed ? typed.value : "";
   box.innerHTML = "";
+  var inWeek = weekMenus();
 
-  var bar = document.createElement("div");
-  bar.className = "mcard active";
-  var bt = document.createElement("span");
-  bt.className = "mtitle";
-  bt.textContent = "Opciones de esta semana: " + weekOptions.length + " de 3";
-  var bn = document.createElement("span");
-  bn.className = "mwho";
-  bn.textContent = weekMenus().map(function (m) { return m.name; }).join(" · ") || "Todavía no elegiste ninguna";
-  var wa = document.createElement("button");
-  wa.type = "button"; wa.className = "btn-wa";
-  wa.disabled = sentWeek || weekOptions.length !== 3;
-  wa.textContent = sentWeek ? "Enviado a WhatsApp ✓" : weekOptions.length === 3 ? "Enviar las 3 opciones al WhatsApp" : "Elegí 3 opciones para enviar";
-  wa.addEventListener("click", function () { sentWeek = true; renderMenus(); });
-  bar.appendChild(bt); bar.appendChild(bn); bar.appendChild(wa);
-  box.appendChild(bar);
-
+  var list = document.createElement("div");
+  list.className = "dishes";
   MENUS.forEach(function (m) {
-    var inWeek = weekOptions.indexOf(m.id) !== -1;
-    var card = document.createElement("div");
-    card.className = "mcard" + (inWeek ? " active" : "");
-    var head = document.createElement("div");
-    head.className = "mhead";
-    var title = document.createElement("span");
-    title.className = "mtitle"; title.textContent = m.name;
-    head.appendChild(title);
-    if (inWeek) {
-      var badge = document.createElement("span");
-      badge.className = "mbadge"; badge.textContent = "Opción de la semana";
-      head.appendChild(badge);
-    }
-    var ul = document.createElement("ul");
-    ul.className = "menu-items";
-    m.items.forEach(function (it) {
-      var li = document.createElement("li"); li.textContent = it; ul.appendChild(li);
-    });
-    var actions = document.createElement("div");
-    actions.className = "mactions";
+    var on = weekOptions.indexOf(m.id) !== -1;
     var btn = document.createElement("button");
-    btn.type = "button"; btn.className = "btn-ghost";
-    if (inWeek) {
-      btn.textContent = "Quitar de la semana";
-      btn.addEventListener("click", function () {
-        sentWeek = false;
-        call("PUT", "/menus/" + m.id + "/week", { inWeek: false });
-      });
-    } else {
-      var full = weekOptions.length >= 3;
-      btn.disabled = full;
-      btn.textContent = full ? "Ya hay 3 · quitá una primero" : "Agregar a la semana";
-      btn.addEventListener("click", function () {
-        sentWeek = false;
-        call("PUT", "/menus/" + m.id + "/week", { inWeek: true });
-      });
-    }
-    actions.appendChild(btn);
-    card.appendChild(head); card.appendChild(ul); card.appendChild(actions);
-    box.appendChild(card);
+    btn.type = "button";
+    btn.className = on ? "dish is-on" : "dish";
+    btn.setAttribute("aria-pressed", String(on));
+    var name = document.createElement("span");
+    name.textContent = m.name;
+    var mark = document.createElement("span");
+    mark.className = "dish-mark";
+    mark.textContent = on ? "✓ Hay" : "No hay";
+    btn.appendChild(name); btn.appendChild(mark);
+    btn.addEventListener("click", function () {
+      btn.disabled = true;
+      call("PUT", "/menus/" + m.id + "/week", { inWeek: !on });
+    });
+    list.appendChild(btn);
   });
+  box.appendChild(list);
+
+  var form = document.createElement("form");
+  form.className = "dish-add";
+  var input = document.createElement("input");
+  input.id = "new-dish"; input.type = "text"; input.maxLength = 120; input.autocomplete = "off";
+  input.placeholder = "Nuevo plato (ej: Caruso)";
+  input.setAttribute("aria-label", "Nuevo plato");
+  input.value = pending;
+  var add = document.createElement("button");
+  add.type = "submit"; add.textContent = "Agregar";
+  form.appendChild(input); form.appendChild(add);
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var value = input.value.trim();
+    if (!value) return;
+    add.disabled = true;
+    api("POST", "/menus", { name: value })
+      .then(function (state) { input.value = ""; applyState(state); setStatus(""); })
+      .catch(function (error) { add.disabled = false; setStatus(error.message, true); });
+  });
+  box.appendChild(form);
+
+  if (inWeek.length) {
+    var share = document.createElement("a");
+    share.className = "btn-wa dish-share";
+    share.target = "_blank"; share.rel = "noopener noreferrer";
+    share.href = "https://wa.me/?text=" + encodeURIComponent("Esta semana hay:\n" + inWeek.map(function (m) { return "• " + m.name; }).join("\n"));
+    share.textContent = "Compartir por WhatsApp";
+    box.appendChild(share);
+  }
 }
 
 /* ---- Buscador de clientes (arriba) ---- */
@@ -592,6 +590,17 @@ document.getElementById("tab-menu").addEventListener("click", function () { show
 document.getElementById("tab-cocina").addEventListener("click", function () { showTab("cocina"); });
 document.getElementById("tab-pedidos").addEventListener("click", function () { showTab("pedidos"); });
 setupOrders({ api: api, applyState: applyState, money: money, showOrders: function () { showTab("pedidos"); } });
+function showCook(which) {
+  [["menu", "menus"], ["prep", "kitchen"]].forEach(function (pair) {
+    var on = pair[0] === which;
+    var tab = document.getElementById("cook-" + pair[0]);
+    tab.classList.toggle("is-on", on);
+    tab.setAttribute("aria-pressed", String(on));
+    document.getElementById(pair[1]).hidden = !on;
+  });
+}
+document.getElementById("cook-menu").addEventListener("click", function () { showCook("menu"); });
+document.getElementById("cook-prep").addEventListener("click", function () { showCook("prep"); });
 setStatus("Cargando…");
 fetch(API_BASE + "/santi/state")
   .then(function (res) { if (!res.ok) throw new Error("Error " + res.status); return res.json(); })
