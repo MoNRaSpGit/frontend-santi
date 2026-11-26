@@ -6,6 +6,7 @@ var ctx = null; // { api, applyState, money, showOrders }
 var data = { clients: [], menus: [], orders: [], today: "", prices: { day: 0, week: 0 } };
 var form = null; // null = cerrado
 var saved = "";
+var openOrderId = null;
 var kitchenDay = "";
 
 function el(tag, className, text) {
@@ -45,10 +46,12 @@ function firstMenuId() { return weekMenus()[0] ? weekMenus()[0].id : null; }
 function clientById(id) { return data.clients.filter(function (c) { return c.id === id; })[0]; }
 
 function newForm(clientId) {
+  var dayMenus = {};
+  if (nextDays()[0]) dayMenus[nextDays()[0]] = firstMenuId();
   return {
     clientId: clientId || (data.clients[0] ? data.clients[0].id : "new"),
     newName: "", newAddress: "",
-    kind: "semanal", menuId: firstMenuId(), dayMenus: {},
+    kind: "dia", menuId: firstMenuId(), dayMenus: dayMenus,
     qty: 1, error: "", saving: false
   };
 }
@@ -91,6 +94,9 @@ function renderForm() {
   var toggle = document.getElementById("ordertoggle");
   box.innerHTML = "";
   toggle.hidden = !!form;
+  document.getElementById("orderlist").hidden = !!form;
+  document.querySelector("main > .search").hidden = !!form;
+  document.getElementById("results").hidden = !!form;
   if (saved && !form) box.appendChild(el("span", "addmsg", saved));
   if (!form) return;
 
@@ -156,6 +162,7 @@ function renderForm() {
   acts.appendChild(button("btn-ghost", "Cancelar", function () { form = null; renderForm(); }));
   f.appendChild(acts);
   f.addEventListener("submit", function (e) { e.preventDefault(); submit(); });
+  f.insertBefore(el("span", "mtitle", "Nuevo pedido"), f.firstChild);
   box.appendChild(f);
 }
 
@@ -189,7 +196,8 @@ function submit() {
       return ctx.api("POST", "/orders", body).then(function (state) {
         form = null;
         ctx.applyState(state);
-        saved = "Pedido de " + clientById(clientId).name + " guardado ✓";
+        var number = state.orders.reduce(function (max, o) { return Math.max(max, o.orderId); }, 0);
+        saved = "Pedido #" + number + " de " + clientById(clientId).name + " guardado ✓";
         renderForm();
       });
     })
@@ -200,43 +208,76 @@ function submit() {
 
 function payLabel(status) { return status === "pagado" ? "Pagado" : status === "sena" ? "Con seña" : "Debe"; }
 
-// Lista de pedidos (el mas nuevo primero), una tarjeta corta por pedido.
+function groupOrders(rows) {
+  var groups = {};
+  rows.forEach(function (o) { (groups[o.orderId] = groups[o.orderId] || []).push(o); });
+  return Object.keys(groups).map(Number).sort(function (a, b) { return b - a; }).map(function (id) { return groups[id]; });
+}
+// "Para hoy" / "Semanal" / "Hoy y 2 días más": el resumen corto del renglon.
+function shortWhat(rows) {
+  var first = rows[0];
+  if (first.kind === "semanal") return "Semanal · " + first.menuName;
+  var when = first.date === data.today ? "Para hoy" : dayLabel(first.date);
+  return when + " · " + first.menuName + (rows.length > 1 ? " y " + (rows.length - 1) + (rows.length === 2 ? " día más" : " días más") : "");
+}
+
+// Lista de pedidos (el mas nuevo primero): renglon corto; al tocarlo se abre.
 function renderOrderList() {
   var box = document.getElementById("orderlist");
   box.innerHTML = "";
-  var groups = {};
-  data.orders.forEach(function (o) { (groups[o.orderId] = groups[o.orderId] || []).push(o); });
-  var ids = Object.keys(groups).map(Number).sort(function (a, b) { return b - a; });
-  if (!ids.length) {
-    box.appendChild(el("div", "empty", "No hay pedidos."));
+  var groups = groupOrders(data.orders);
+  if (!groups.length) {
+    box.appendChild(el("div", "empty", "Todavía no hay pedidos."));
     return;
   }
-  ids.forEach(function (id) {
-    var rows = groups[id];
+  groups.forEach(function (rows) {
     var first = rows[0];
     var client = clientById(first.clientId);
     if (!client) return;
-    var what = first.kind === "semanal"
-      ? "Semanal · " + first.menuName
-      : rows.map(function (o) { return dayLabel(o.date) + ": " + o.menuName; }).join(" · ");
-    var item = el("div", "order-card");
-    var head = el("div", "pay-row");
-    var main = el("div", "pay-main");
-    main.appendChild(el("span", "name", client.name + (first.qty > 1 ? " ×" + first.qty : "")));
-    main.appendChild(el("span", "pay-meta", what));
-    var side = el("div", "side");
+    var open = openOrderId === first.orderId;
+    var item = el("div", open ? "order-card is-open" : "order-card");
+    var head = button("order-head", undefined, function () {
+      openOrderId = open ? null : first.orderId;
+      renderOrderList();
+    });
+    head.setAttribute("aria-expanded", String(open));
+    var main = el("span", "pay-main");
+    main.appendChild(el("span", "name", "#" + first.orderId + " · " + client.name));
+    main.appendChild(el("span", "pay-meta", shortWhat(rows)));
+    var side = el("span", "side");
     side.appendChild(el("span", "pay-amount", ctx.money(first.total)));
     side.appendChild(el("span", "tag tag-" + first.payStatus, payLabel(first.payStatus)));
     head.appendChild(main); head.appendChild(side);
     item.appendChild(head);
+    if (open) {
+      var detail = el("div", "order-detail");
+      detail.appendChild(el("span", "pay-meta", (first.kind === "semanal" ? "Menú semanal" : "Pedido por día") + " · " + first.qty + (first.qty === 1 ? " vianda" : " viandas") + (first.kind === "semanal" ? " por día" : "")));
+      var days = el("ul", "hist-list");
+      rows.forEach(function (o) {
+        var li = el("li");
+        li.appendChild(el("span", "hist-day", dayLabel(o.date)));
+        li.appendChild(el("span", "hist-dish", o.menuName + (o.qty > 1 ? " ×" + o.qty : "")));
+        days.appendChild(li);
+      });
+      detail.appendChild(days);
+      if (client.address && client.address !== client.name) detail.appendChild(el("span", "pay-meta", client.address));
+      item.appendChild(detail);
+    }
     box.appendChild(item);
   });
+}
+
+// Numeros de los pedidos sin pagar de un cliente (para la pestaña Pagos).
+export function unpaidOrders(clientId) {
+  return groupOrders(data.orders.filter(function (o) { return o.clientId === clientId && o.payStatus !== "pagado"; }))
+    .map(function (rows) { return rows[0].orderId; })
+    .reverse();
 }
 
 function renderKitchen() {
   var box = document.getElementById("kitchen");
   box.innerHTML = "";
-  var dates = data.orders.map(function (o) { return o.date; }).filter(function (d, i, all) { return all.indexOf(d) === i; });
+  var dates = data.orders.map(function (o) { return o.date; }).filter(function (d, i, all) { return d >= data.today && all.indexOf(d) === i; });
   if (!dates.length) {
     box.appendChild(el("div", "empty", "No hay pedidos."));
     return;
@@ -332,13 +373,15 @@ export function ordersSection(clientId) {
   var rows = data.orders.filter(function (o) { return o.clientId === clientId; });
   if (rows.length) {
     var ul = el("ul", "hist-list");
-    rows.forEach(function (o) {
+    groupOrders(rows).forEach(function (group) {
       var li = el("li");
-      li.appendChild(el("span", "hist-day", dayLabel(o.date)));
-      li.appendChild(el("span", "hist-dish", o.menuName + (o.qty > 1 ? " ×" + o.qty : "")));
+      li.appendChild(el("span", "hist-day", "#" + group[0].orderId));
+      li.appendChild(el("span", "hist-dish", shortWhat(group) + " · " + ctx.money(group[0].total) + " · " + payLabel(group[0].payStatus)));
       ul.appendChild(li);
     });
     wrap.appendChild(ul);
+  } else {
+    wrap.appendChild(el("span", "menu-note", "Sin pedidos."));
   }
   wrap.appendChild(button("btn-small", "+ Nuevo pedido", function () {
     saved = "";

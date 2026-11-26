@@ -1,6 +1,6 @@
 import "./styles.css";
 import { setupUpdates } from "./actualizacion.js";
-import { ordersSection, renderOrders, setOrdersState, setupOrders } from "./pedidos.js";
+import { ordersSection, renderOrders, setOrdersState, setupOrders, unpaidOrders } from "./pedidos.js";
 
 var openId = null;
 
@@ -153,14 +153,18 @@ function money(n) { return "$ " + n.toLocaleString("es-UY"); }
 
 function render() { renderPagos(); renderClientes(); }
 
-// Pestaña Pagos: quién debe y el botón de registrar pago.
+// Pestaña Pagos: solo los que deben, con sus pedidos pendientes.
 function renderPagos() {
   var list = document.getElementById("list");
   list.innerHTML = "";
-  clients.forEach(function (c) {
-    var paid = c.owes === 0;
+  var debtors = clients.filter(function (c) { return c.owes > 0; });
+  if (!debtors.length) {
+    var empty = document.createElement("li");
+    empty.className = "empty"; empty.textContent = "Nadie debe.";
+    list.appendChild(empty);
+  }
+  debtors.forEach(function (c) {
     var li = document.createElement("li");
-    li.className = paid ? "paid" : "";
     var row = document.createElement("div");
     row.className = "row";
     var info = document.createElement("div");
@@ -168,12 +172,18 @@ function renderPagos() {
     var name = document.createElement("span");
     name.className = "name"; name.textContent = c.name;
     var owes = document.createElement("span");
-    owes.className = "owes"; owes.textContent = paid ? "Al día" : "Debe " + money(c.owes);
+    owes.className = "owes"; owes.textContent = "Debe " + money(c.owes);
     info.appendChild(name); info.appendChild(owes);
+    var pending = unpaidOrders(c.id);
+    if (pending.length) {
+      var which = document.createElement("span");
+      which.className = "menu-note";
+      which.textContent = pending.map(function (id) { return "Pedido #" + id; }).join(", ");
+      info.appendChild(which);
+    }
     var btn = document.createElement("button");
-    btn.type = "button"; btn.disabled = paid;
-    btn.textContent = paid ? "Pagado ✓" : "Registrar pago";
-    btn.addEventListener("click", function () { registerPayment(c); });
+    btn.type = "button"; btn.textContent = "Registrar pago";
+    btn.addEventListener("click", function () { btn.disabled = true; registerPayment(c); });
     row.appendChild(info); row.appendChild(btn);
     li.appendChild(row);
     list.appendChild(li);
@@ -211,106 +221,13 @@ function renderClientes() {
       info.appendChild(ad);
     }
     var wk = document.createElement("span");
-    wk.className = weekly[c.id] ? "weekly" : "owes-none";
-    wk.textContent = weekly[c.id] ? "Toda la semana: " + menuName(weekly[c.id]) : "Sin pedido para la semana";
+    wk.className = c.owes > 0 ? "owes" : "owes-none";
+    wk.textContent = c.owes > 0 ? "Debe " + money(c.owes) : "Al día";
     info.appendChild(wk);
     row.appendChild(info);
     li.appendChild(row);
     if (isOpen) {
-      var menu = document.createElement("div");
-      menu.className = "menu";
-      var t = document.createElement("span");
-      t.className = "menu-title"; t.textContent = "Menú de hoy";
-      var mn = document.createElement("span");
-      mn.className = "menu-name"; mn.textContent = c.menu.name;
-      var ul = document.createElement("ul");
-      ul.className = "menu-items";
-      c.menu.items.forEach(function (it) {
-        var mi = document.createElement("li"); mi.textContent = it; ul.appendChild(mi);
-      });
-      var nt = document.createElement("span");
-      nt.className = "menu-note"; nt.textContent = c.menu.note;
-      menu.appendChild(t); menu.appendChild(mn); menu.appendChild(ul); menu.appendChild(nt);
-      li.appendChild(menu);
-
-      var pick = document.createElement("div");
-      pick.className = "pick";
-      var lbl = document.createElement("label");
-      lbl.htmlFor = "week-" + c.id; lbl.textContent = "Menú de toda la semana";
-      var sel = document.createElement("select");
-      sel.id = "week-" + c.id;
-      var none = document.createElement("option");
-      none.value = ""; none.textContent = "Sin pedido para la semana";
-      sel.appendChild(none);
-      weekMenus().forEach(function (m) {
-        var o = document.createElement("option");
-        o.value = String(m.id); o.textContent = m.name;
-        if (weekly[c.id] === m.id) o.selected = true;
-        sel.appendChild(o);
-      });
-      sel.addEventListener("change", function () {
-        call("PUT", "/clients/" + c.id + "/weekly", { menuId: sel.value ? Number(sel.value) : null });
-      });
-      pick.appendChild(lbl); pick.appendChild(sel);
-      li.appendChild(pick);
       li.appendChild(ordersSection(c.id));
-
-      var hist = document.createElement("div");
-      hist.className = "hist";
-      var ht = document.createElement("span");
-      ht.className = "menu-title"; ht.textContent = "Esta semana";
-      var hl = document.createElement("ul");
-      hl.className = "hist-list";
-      (histData[c.id] || []).forEach(function (h, idx) {
-        var hi = document.createElement("li");
-        var d = document.createElement("span");
-        d.className = "hist-day"; d.textContent = h[0];
-        hi.appendChild(d);
-        var isEditing = editing && editing.id === c.id && editing.idx === idx;
-        if (isEditing) {
-          var inp = document.createElement("select");
-          inp.id = "hist-" + c.id + "-" + idx;
-          inp.setAttribute("aria-label", "Menú del " + h[0]);
-          var names = weekMenus().map(function (m) { return m.name; });
-          if (names.indexOf(h[1]) === -1) {
-            var prev = document.createElement("option");
-            prev.value = h[1]; prev.textContent = h[1] + " (anterior)";
-            inp.appendChild(prev);
-          }
-          names.forEach(function (n) {
-            var o = document.createElement("option");
-            o.value = n; o.textContent = n;
-            inp.appendChild(o);
-          });
-          inp.value = h[1];
-          var ok = document.createElement("button");
-          ok.type = "button"; ok.textContent = "Guardar";
-          function commit() {
-            var v = inp.value.trim();
-            editing = null;
-            if (v) call("PUT", "/clients/" + c.id + "/history/" + encodeURIComponent(h[0]), { dish: v }); else renderClientes();
-          }
-          ok.addEventListener("click", commit);
-          inp.addEventListener("keydown", function (e) {
-            if (e.key === "Escape") { editing = null; renderClientes(); }
-          });
-          var no = document.createElement("button");
-          no.type = "button"; no.className = "btn-ghost"; no.textContent = "Cancelar";
-          no.addEventListener("click", function () { editing = null; renderClientes(); });
-          hi.appendChild(inp); hi.appendChild(ok); hi.appendChild(no);
-          setTimeout(function () { inp.focus(); }, 0);
-        } else {
-          var dish = document.createElement("span");
-          dish.className = "hist-dish"; dish.textContent = h[1];
-          var ed = document.createElement("button");
-          ed.type = "button"; ed.className = "btn-ghost btn-small"; ed.textContent = "Editar";
-          ed.addEventListener("click", function () { editing = { id: c.id, idx: idx }; renderClientes(); });
-          hi.appendChild(dish); hi.appendChild(ed);
-        }
-        hl.appendChild(hi);
-      });
-      hist.appendChild(ht); hist.appendChild(hl);
-      li.appendChild(hist);
       li.appendChild(paymentsSection(c));
     }
     list.appendChild(li);
@@ -363,10 +280,6 @@ function renderMenus() {
     m.items.forEach(function (it) {
       var li = document.createElement("li"); li.textContent = it; ul.appendChild(li);
     });
-    var who = clients.filter(function (c) { return weekly[c.id] === m.id; }).map(function (c) { return c.name; });
-    var whoEl = document.createElement("span");
-    whoEl.className = "mwho";
-    whoEl.textContent = who.length ? "Lo pidieron toda la semana: " + who.join(", ") : "Nadie lo pidió para toda la semana";
     var actions = document.createElement("div");
     actions.className = "mactions";
     var btn = document.createElement("button");
@@ -387,7 +300,7 @@ function renderMenus() {
       });
     }
     actions.appendChild(btn);
-    card.appendChild(head); card.appendChild(ul); card.appendChild(whoEl); card.appendChild(actions);
+    card.appendChild(head); card.appendChild(ul); card.appendChild(actions);
     box.appendChild(card);
   });
 }
@@ -454,46 +367,8 @@ function renderSearch() {
       pay.appendChild(ps); pay.appendChild(pb);
       d.appendChild(pay);
 
-      var wkT = document.createElement("div");
-      wkT.className = "hist";
-      var wt = document.createElement("span");
-      wt.className = "menu-title"; wt.textContent = "Menú de toda la semana";
-      var wv = document.createElement("span");
-      wv.className = "menu-name";
-      wv.textContent = weekly[c.id] ? menuName(weekly[c.id]) : "Sin pedido para la semana";
-      wkT.appendChild(wt); wkT.appendChild(wv);
-      d.appendChild(wkT);
-
-      var h = document.createElement("div");
-      h.className = "hist";
-      var ht2 = document.createElement("span");
-      ht2.className = "menu-title"; ht2.textContent = "Qué compró en la semana";
-      var hl2 = document.createElement("ul");
-      hl2.className = "hist-list";
-      (histData[c.id] || []).forEach(function (row) {
-        var li = document.createElement("li");
-        var dd = document.createElement("span");
-        dd.className = "hist-day"; dd.textContent = row[0];
-        var dish = document.createElement("span");
-        dish.className = "hist-dish"; dish.textContent = row[1];
-        li.appendChild(dd); li.appendChild(dish);
-        hl2.appendChild(li);
-      });
-      h.appendChild(ht2); h.appendChild(hl2);
-      d.appendChild(h);
+      d.appendChild(ordersSection(c.id));
       d.appendChild(paymentsSection(c));
-
-      var mt = document.createElement("div");
-      mt.className = "hist";
-      var mtt = document.createElement("span");
-      mtt.className = "menu-title"; mtt.textContent = "Menú de hoy";
-      var mtn = document.createElement("span");
-      mtn.className = "menu-name"; mtn.textContent = c.menu.name;
-      var mti = document.createElement("span");
-      mti.className = "menu-note";
-      mti.textContent = (c.menu.items.length ? c.menu.items.join(", ") + ". " : "") + c.menu.note;
-      mt.appendChild(mtt); mt.appendChild(mtn); mt.appendChild(mti);
-      d.appendChild(mt);
 
       card.appendChild(d);
     }
