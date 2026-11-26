@@ -232,3 +232,6 @@ button:disabled { background: transparent; color: var(--muted); cursor: default;
 .stepper { display: flex; align-items: center; gap: 14px; }
 .stepper .seg-btn { flex: 0 0 56px; font-size: 1.4rem; }
 .stepper strong { font-family: var(--font-num); font-size: 1.5rem; min-width: 32px; text-align: center; }
+
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand img { border-radius: 12px; display: block; }

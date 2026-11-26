@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2a9a63"/>
+      <stop offset="1" stop-color="#14573a"/>
+    </linearGradient>
+    <linearGradient id="piel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6b04a"/>
+      <stop offset="0.55" stop-color="#e0842a"/>
+      <stop offset="1" stop-color="#a9541a"/>
+    </linearGradient>
+    <linearGradient id="olla" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a4249"/>
+      <stop offset="1" stop-color="#171b1f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#fondo)"/>
+  <!-- vapor -->
+  <g fill="none" stroke="#ffffff" stroke-width="15" stroke-linecap="round" opacity="0.85">
+    <path d="M176 164c-26-24 20-42-2-74"/>
+    <path d="M256 150c-28-28 24-48 0-86"/>
+    <path d="M336 164c-26-24 20-42-2-74"/>
+  </g>
+  <!-- patas -->
+  <g>
+    <path d="M150 262 L108 214" stroke="#d77a26" stroke-width="42" stroke-linecap="round"/>
+    <path d="M362 262 L404 214" stroke="#d77a26" stroke-width="42" stroke-linecap="round"/>
+    <g fill="#fdf3e1">
+      <circle cx="94" cy="208" r="15"/><circle cx="108" cy="193" r="15"/>
+      <circle cx="418" cy="208" r="15"/><circle cx="404" cy="193" r="15"/>
+    </g>
+  </g>
+  <!-- pollo -->
+  <path d="M122 312c0-82 60-134 134-134s134 52 134 134z" fill="url(#piel)"/>
+  <path d="M176 232c22-28 52-40 84-38" fill="none" stroke="#ffd58a" stroke-width="16" stroke-linecap="round" opacity="0.9"/>
+  <path d="M184 312c4-42 30-66 62-70M330 312c-4-42-30-66-62-70" fill="none" stroke="#b9621d" stroke-width="9" stroke-linecap="round"/>
+  <!-- verduras -->
+  <circle cx="132" cy="300" r="22" fill="#e8503a"/>
+  <circle cx="380" cy="300" r="22" fill="#f4c23f"/>
+  <path d="M356 292c14-30 42-32 52-24-8 24-30 36-52 24z" fill="#7fd15a"/>
+  <!-- olla -->
+  <rect x="54" y="306" width="404" height="30" rx="15" fill="#4b545d"/>
+  <path d="M82 336h348l-14 76c-6 30-30 46-62 46H158c-32 0-56-16-62-46z" fill="url(#olla)"/>
+  <rect x="26" y="344" width="52" height="24" rx="12" fill="#4b545d"/>
+  <rect x="434" y="344" width="52" height="24" rx="12" fill="#4b545d"/>
+  <path d="M130 372c60 12 192 12 252 0" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity="0.18"/>
+</svg>

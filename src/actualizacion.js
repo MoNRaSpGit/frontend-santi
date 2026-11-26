@@ -28,6 +28,24 @@ function inUse() {
   return typing || openOrder || Date.now() - lastActivity < IDLE_BEFORE_AUTO_MS;
 }
 
+// Da de baja el service worker de ESTA app y borra su cache, para que la
+// recarga traiga la version nueva. Si falla, igual se recarga.
+function clearAppCache() {
+  var tasks = [];
+  if ("serviceWorker" in navigator) {
+    var scope = new URL("./", window.location.href).pathname;
+    tasks.push(navigator.serviceWorker.getRegistrations().then(function (list) {
+      return Promise.all(list.filter(function (r) { return new URL(r.scope).pathname === scope; }).map(function (r) { return r.unregister(); }));
+    }));
+  }
+  if ("caches" in window) {
+    tasks.push(window.caches.keys().then(function (keys) {
+      return Promise.all(keys.filter(function (k) { return k.indexOf("santi-") === 0; }).map(function (k) { return window.caches.delete(k); }));
+    }));
+  }
+  return Promise.all(tasks).catch(function () {});
+}
+
 function runUpdate() {
   if (started) return;
   started = true;
@@ -49,6 +67,7 @@ function runUpdate() {
   overlay.appendChild(card);
   document.body.appendChild(overlay);
 
+  var cleanup = clearAppCache();
   var startedAt = Date.now();
   var timer = window.setInterval(function () {
     var value = Math.min(100, Math.round(((Date.now() - startedAt) / PROGRESS_MS) * 100));
@@ -57,7 +76,7 @@ function runUpdate() {
     if (value >= 100) {
       window.clearInterval(timer);
       title.textContent = "¡Listo!";
-      window.location.reload();
+      cleanup.then(function () { window.location.reload(); });
     }
   }, 40);
 }

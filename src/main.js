@@ -723,3 +723,10 @@ fetch(API_BASE + "/santi/state")
   .then(function (state) { applyState(state); setStatus(""); })
   .catch(function (e) { setStatus("No se pudo cargar: " + e.message + ". Probá recargar la página.", true); });
 setupUpdates();
+
+// App instalable (solo en produccion).
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("./sw.js").catch(function () {});
+  });
+}
