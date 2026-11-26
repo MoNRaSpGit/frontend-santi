@@ -187,3 +187,29 @@ button:disabled { background: transparent; color: var(--muted); cursor: default;
 .chart-value { fill: var(--fg); font-size: 13px; font-family: var(--font-num); }
 .chart-label { fill: var(--muted); font-size: 14px; }
 .chart-label.is-today { fill: var(--fg); font-weight: 700; }
+
+/* ---- Pedidos y Cocina (26/11/2026) ---- */
+.order-cta { width: 100%; min-height: 52px; font-size: 1.05rem; border-radius: 12px; }
+#orderbox { display: flex; flex-direction: column; gap: 10px; }
+#orderbox:empty { display: none; }
+.orderform { background: var(--surface); border: 2px solid var(--accent); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.orderform .f { display: flex; flex-direction: column; gap: 6px; }
+.orderform input, .orderform select { width: 100%; min-width: 0; min-height: 44px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; }
+.orderform input:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+.seg { display: flex; gap: 6px; }
+.seg.wrap { flex-wrap: wrap; }
+.seg.scroll { overflow-x: auto; padding-bottom: 4px; }
+.seg-btn { flex: 1; min-height: 42px; padding: 0 12px; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; white-space: nowrap; font-weight: 500; }
+.seg.wrap .seg-btn, .seg.scroll .seg-btn { flex: 0 0 auto; }
+.seg-btn.is-on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 700; }
+.daylist { display: flex; flex-direction: column; gap: 8px; }
+.dayrow { display: grid; grid-template-columns: 150px 1fr; gap: 8px; align-items: center; }
+#kitchen { display: flex; flex-direction: column; gap: 14px; }
+.counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.count { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.count strong { font-family: var(--font-num); font-size: 2rem; color: var(--accent); line-height: 1; }
+.count span { font-size: 0.9rem; }
+.side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.tag { font-size: 0.75rem; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; color: var(--muted); }
+.tag-debe, .tag-sena { color: var(--debt); border-color: var(--debt); }
+.tag-pagado { color: var(--accent); border-color: var(--accent); }

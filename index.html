@@ -15,6 +15,8 @@
     <p class="sub">Ejemplo con datos de mentira, guardados en el servidor. En Clientes, tocá uno para ver su menú de hoy.</p>
   </header>
   <p class="status" id="status" hidden></p>
+  <button type="button" class="order-cta" id="ordertoggle">+ Nuevo pedido</button>
+  <div id="orderbox" aria-live="polite"></div>
   <div class="search">
     <label for="search">Buscar cliente</label>
     <input id="search" type="search" placeholder="Nombre o calle, por ejemplo Avenida 18 de Julio" autocomplete="off">
@@ -23,12 +25,13 @@
   <div class="tabs" role="tablist">
     <button type="button" class="tab" role="tab" id="tab-pagos" aria-selected="true">Pagos</button>
     <button type="button" class="tab" role="tab" id="tab-clientes" aria-selected="false">Clientes</button>
-    <button type="button" class="tab" role="tab" id="tab-historial" aria-selected="false">Historial</button>
+    <button type="button" class="tab" role="tab" id="tab-cocina" aria-selected="false">Cocina</button>
     <button type="button" class="tab" role="tab" id="tab-panel" aria-selected="false">Panel</button>
     <div class="more">
       <button type="button" class="tab more-btn" id="more-btn" aria-haspopup="true" aria-expanded="false" aria-label="Más secciones">☰</button>
       <div class="more-menu" id="more-menu" hidden>
         <button type="button" class="more-item" role="tab" id="tab-menu" aria-selected="false">Menú de la semana</button>
+        <button type="button" class="more-item" role="tab" id="tab-historial" aria-selected="false">Historial de pagos</button>
       </div>
     </div>
   </div>
@@ -60,6 +63,9 @@
     </form>
     <span class="addmsg" id="addmsg" hidden></span>
     <ul id="clientlist"></ul>
+  </div>
+  <div class="pane" id="pane-cocina" hidden>
+    <div id="kitchen"></div>
   </div>
   <div class="pane" id="pane-panel" hidden>
     <h2 class="panel-month" id="panel-month"></h2>

@@ -1,4 +1,5 @@
 import "./styles.css";
+import { ordersSection, renderOrders, setOrdersState, setupOrders } from "./pedidos.js";
 
 var openId = null;
 
@@ -21,8 +22,8 @@ function setStatus(text, isError) {
   el.className = isError ? "status err" : "status";
 }
 
-// Pide al backend y vuelve a dibujar todo con el estado nuevo que devuelve.
-function call(method, path, body) {
+// Pedido al backend: devuelve el estado nuevo o rechaza con el mensaje.
+function api(method, path, body) {
   return fetch(API_BASE + "/santi" + path, {
     method: method,
     headers: { "Content-Type": "application/json" },
@@ -33,7 +34,12 @@ function call(method, path, body) {
         if (!res.ok) throw new Error(data && data.message ? [].concat(data.message).join(" ") : "Error " + res.status);
         return data;
       });
-    })
+    });
+}
+
+// Pide al backend y vuelve a dibujar todo con el estado nuevo que devuelve.
+function call(method, path, body) {
+  return api(method, path, body)
     .then(function (state) {
       applyState(state);
       setStatus("");
@@ -57,8 +63,10 @@ function applyState(state) {
   state.history.forEach(function (h) {
     (histData[h.clientId] = histData[h.clientId] || []).push([h.day, h.dish]);
   });
+  setOrdersState(state);
   render();
   renderMenus();
+  renderOrders();
 }
 
 function weekMenus() { return MENUS.filter(function (m) { return weekOptions.indexOf(m.id) !== -1; }); }
@@ -244,6 +252,7 @@ function renderClientes() {
       });
       pick.appendChild(lbl); pick.appendChild(sel);
       li.appendChild(pick);
+      li.appendChild(ordersSection(c.id));
 
       var hist = document.createElement("div");
       hist.className = "hist";
@@ -522,12 +531,12 @@ addForm.addEventListener("submit", function (e) {
 });
 
 function showTab(which) {
-  ["pagos", "menu", "clientes", "historial", "panel"].forEach(function (t) {
+  ["pagos", "menu", "clientes", "cocina", "historial", "panel"].forEach(function (t) {
     document.getElementById("pane-" + t).hidden = t !== which;
     document.getElementById("tab-" + t).setAttribute("aria-selected", String(t === which));
   });
   // el boton de la hamburguesa se marca cuando la seccion activa vive adentro
-  document.getElementById("more-btn").setAttribute("aria-selected", String(which === "menu"));
+  document.getElementById("more-btn").setAttribute("aria-selected", String(which === "menu" || which === "historial"));
   closeMore();
 }
 function closeMore() {
@@ -704,6 +713,8 @@ document.getElementById("hist-filter").addEventListener("change", function () { 
 document.getElementById("tab-pagos").addEventListener("click", function () { showTab("pagos"); });
 document.getElementById("tab-clientes").addEventListener("click", function () { showTab("clientes"); });
 document.getElementById("tab-menu").addEventListener("click", function () { showTab("menu"); });
+document.getElementById("tab-cocina").addEventListener("click", function () { showTab("cocina"); });
+setupOrders({ api: api, applyState: applyState, money: money });
 setStatus("Cargando datos... (si el servidor estaba dormido puede tardar unos segundos)");
 fetch(API_BASE + "/santi/state")
   .then(function (res) { if (!res.ok) throw new Error("Error " + res.status); return res.json(); })
