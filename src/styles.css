@@ -213,3 +213,6 @@ button:disabled { background: transparent; color: var(--muted); cursor: default;
 .tag { font-size: 0.75rem; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; color: var(--muted); }
 .tag-debe, .tag-sena { color: var(--debt); border-color: var(--debt); }
 .tag-pagado { color: var(--accent); border-color: var(--accent); }
+
+.order-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.order-card .hist-list .hist-day { min-width: 108px; }

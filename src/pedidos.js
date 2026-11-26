@@ -331,6 +331,46 @@ function renderKitchen() {
   box.appendChild(list);
 }
 
+// Pestaña Pedidos: todos los pedidos con entregas pendientes, el mas nuevo
+// primero, con sus dias, total y estado de cobro.
+function renderOrderList() {
+  var box = document.getElementById("orderlist");
+  box.innerHTML = "";
+  var groups = {};
+  data.orders.forEach(function (o) { (groups[o.orderId] = groups[o.orderId] || []).push(o); });
+  var ids = Object.keys(groups).map(Number).sort(function (a, b) { return b - a; });
+  if (!ids.length) {
+    box.appendChild(el("div", "empty", "Todavía no hay pedidos. Cargá el primero con “+ Nuevo pedido”."));
+    return;
+  }
+  ids.forEach(function (id) {
+    var rows = groups[id];
+    var first = rows[0];
+    var client = clientById(first.clientId);
+    if (!client) return;
+    var item = el("div", "order-card");
+    var head = el("div", "pay-row");
+    var main = el("div", "pay-main");
+    main.appendChild(el("span", "name", client.name));
+    main.appendChild(el("span", "pay-meta", (first.kind === "semanal" ? "Semanal" : "Por día") + " · " + first.qty + (first.qty === 1 ? " vianda" : " viandas") + " por día"));
+    var side = el("div", "side");
+    side.appendChild(el("span", "pay-amount", ctx.money(first.total)));
+    side.appendChild(el("span", "tag tag-" + first.payStatus, payLabel(first.payStatus)));
+    head.appendChild(main); head.appendChild(side);
+    item.appendChild(head);
+    var days = el("ul", "hist-list");
+    rows.forEach(function (o) {
+      var li = el("li");
+      li.appendChild(el("span", "hist-day", dayLabel(o.date)));
+      li.appendChild(el("span", "hist-dish", o.menuName));
+      days.appendChild(li);
+    });
+    item.appendChild(days);
+    if (first.note) item.appendChild(el("span", "menu-note", "Nota: " + first.note));
+    box.appendChild(item);
+  });
+}
+
 // Seccion "Pedidos que vienen" dentro de la ficha del cliente.
 export function ordersSection(clientId) {
   var wrap = el("div", "hist");
@@ -352,6 +392,7 @@ export function ordersSection(clientId) {
   add.addEventListener("click", function () {
     confirmation = null;
     form = newForm(clientId);
+    ctx.showOrders();
     renderForm();
     document.getElementById("orderbox").scrollIntoView({ behavior: "smooth", block: "start" });
   });
@@ -366,6 +407,7 @@ export function renderOrders() {
   // El formulario abierto no se redibuja con cada cambio de estado: se
   // perderia lo que se esta escribiendo.
   if (!form) renderForm();
+  renderOrderList();
   renderKitchen();
 }
 export function setupOrders(context) {
