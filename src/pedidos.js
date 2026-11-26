@@ -1,11 +1,11 @@
-// Pedidos de viandas: "+ Nuevo pedido" (semanal o por dia) y la vista
-// "Cocina" (cuantas viandas de cada menu hay que preparar por dia).
+// Pedidos de viandas: "+ Nuevo pedido" (cliente + lo que lleva), la lista de
+// pedidos, la vista "Cocina" y los precios (en Configuracion).
 var DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-var ctx = null; // { api, applyState, money }
+var ctx = null; // { api, applyState, money, showOrders }
 var data = { clients: [], menus: [], orders: [], today: "", prices: { day: 0, week: 0 } };
 var form = null; // null = cerrado
-var confirmation = null;
+var saved = "";
 var kitchenDay = "";
 
 function el(tag, className, text) {
@@ -14,55 +14,52 @@ function el(tag, className, text) {
   if (text !== undefined) node.textContent = text;
   return node;
 }
+function button(className, text, onClick) {
+  var b = el("button", className, text);
+  b.type = "button";
+  if (onClick) b.addEventListener("click", onClick);
+  return b;
+}
 function addDays(key, days) {
   return new Date(new Date(key + "T12:00:00Z").getTime() + days * 86400000).toISOString().slice(0, 10);
 }
 function weekdayOf(key) { return new Date(key + "T12:00:00Z").getUTCDay(); }
 function shortDate(key) { return key.slice(8, 10) + "/" + key.slice(5, 7); }
 function dayLabel(key) {
-  if (key === data.today) return "Hoy " + shortDate(key);
-  if (key === addDays(data.today, 1)) return "Mañana " + shortDate(key);
+  if (key === data.today) return "Hoy";
+  if (key === addDays(data.today, 1)) return "Mañana";
   return DAY_NAMES[weekdayOf(key)] + " " + shortDate(key);
 }
-// Dias habiles (lunes a viernes, desde hoy) de esta semana (0) o la proxima (1).
-function weekDates(offset) {
-  var monday = addDays(data.today, -((weekdayOf(data.today) + 6) % 7) + offset * 7);
+// Los proximos 5 dias habiles (lunes a viernes) contando hoy.
+function nextDays() {
   var result = [];
-  for (var i = 0; i < 5; i++) {
-    var key = addDays(monday, i);
-    if (key >= data.today) result.push(key);
+  for (var offset = 0; result.length < 5 && offset < 14; offset++) {
+    var key = addDays(data.today, offset);
+    var weekday = weekdayOf(key);
+    if (weekday >= 1 && weekday <= 5) result.push(key);
   }
   return result;
 }
 function weekMenus() { return data.menus.filter(function (m) { return m.inWeek; }); }
+function firstMenuId() { return weekMenus()[0] ? weekMenus()[0].id : null; }
 function clientById(id) { return data.clients.filter(function (c) { return c.id === id; })[0]; }
 
 function newForm(clientId) {
-  var week = weekDates(0).length ? 0 : 1;
-  var menu = weekMenus()[0];
-  var checked = {};
-  weekDates(week).forEach(function (d) { checked[d] = true; });
   return {
     clientId: clientId || (data.clients[0] ? data.clients[0].id : "new"),
     newName: "", newAddress: "",
-    kind: "semanal", week: week, menuId: menu ? menu.id : null,
-    weekDays: checked, dayMenus: {},
-    qty: 1, note: "", total: null, pay: "debe", sena: "", error: "", saving: false
+    kind: "semanal", menuId: firstMenuId(), dayMenus: {},
+    qty: 1, error: "", saving: false
   };
 }
-
 function selectedDays() {
-  if (form.kind === "semanal") {
-    return weekDates(form.week).filter(function (d) { return form.weekDays[d]; }).map(function (d) { return { date: d, menuId: form.menuId }; });
-  }
+  if (form.kind === "semanal") return nextDays().map(function (d) { return { date: d, menuId: form.menuId }; });
   return Object.keys(form.dayMenus).sort().map(function (d) { return { date: d, menuId: form.dayMenus[d] }; });
 }
-function autoTotal() {
-  var count = selectedDays().length;
-  var unit = form.kind === "semanal" && count === 5 ? data.prices.week : data.prices.day * count;
-  return unit * (Number(form.qty) || 0);
+function totalFor(count, qty) {
+  var unit = form.kind === "semanal" ? data.prices.week : data.prices.day * count;
+  return unit * qty;
 }
-function currentTotal() { return form.total === null ? autoTotal() : Number(form.total) || 0; }
 
 function menuSelect(value, onChange, label) {
   var sel = el("select");
@@ -81,20 +78,9 @@ function field(label, control) {
   wrap.appendChild(control);
   return wrap;
 }
-function segmented(options, value, onPick) {
-  var box = el("div", "seg");
-  options.forEach(function (opt) {
-    var b = el("button", opt[0] === value ? "seg-btn is-on" : "seg-btn", opt[1]);
-    b.type = "button";
-    b.setAttribute("aria-pressed", String(opt[0] === value));
-    b.addEventListener("click", function () { onPick(opt[0]); });
-    box.appendChild(b);
-  });
-  return box;
-}
-function input(type, value, placeholder, onInput) {
+function input(value, placeholder, onInput) {
   var node = el("input");
-  node.type = type; node.value = value; node.placeholder = placeholder || ""; node.autocomplete = "off";
+  node.type = "text"; node.value = value; node.placeholder = placeholder; node.autocomplete = "off";
   node.addEventListener("input", function () { onInput(node.value); });
   return node;
 }
@@ -105,27 +91,10 @@ function renderForm() {
   var toggle = document.getElementById("ordertoggle");
   box.innerHTML = "";
   toggle.hidden = !!form;
-
-  if (confirmation) {
-    var done = el("div", "mcard active");
-    done.appendChild(el("span", "mtitle", "Pedido guardado ✓"));
-    done.appendChild(el("span", "bubble-to", "Mensaje para " + confirmation.name + " (vista previa, no se manda de verdad)"));
-    done.appendChild(el("div", "bubble", confirmation.text));
-    var actions = el("div", "mactions");
-    var send = el("button", "btn-wa", confirmation.sent ? "Enviado a WhatsApp ✓" : "Enviar al WhatsApp");
-    send.type = "button"; send.disabled = confirmation.sent;
-    send.addEventListener("click", function () { confirmation.sent = true; renderForm(); });
-    var close = el("button", "btn-ghost", "Listo");
-    close.type = "button";
-    close.addEventListener("click", function () { confirmation = null; renderForm(); });
-    actions.appendChild(send); actions.appendChild(close);
-    done.appendChild(actions);
-    box.appendChild(done);
-  }
+  if (saved && !form) box.appendChild(el("span", "addmsg", saved));
   if (!form) return;
 
   var f = el("form", "orderform");
-  f.appendChild(el("span", "mtitle", "Nuevo pedido"));
 
   var sel = el("select");
   sel.setAttribute("aria-label", "Cliente");
@@ -137,80 +106,54 @@ function renderForm() {
   sel.addEventListener("change", function () { change(function () { form.clientId = sel.value === "new" ? "new" : Number(sel.value); }); });
   f.appendChild(field("Cliente", sel));
   if (form.clientId === "new") {
-    f.appendChild(field("Nombre", input("text", form.newName, "Ej: Marta", function (v) { form.newName = v; })));
-    f.appendChild(field("Dirección", input("text", form.newAddress, "Ej: Colonia 455", function (v) { form.newAddress = v; })));
+    f.appendChild(field("Nombre", input(form.newName, "Ej: Marta", function (v) { form.newName = v; })));
+    f.appendChild(field("Dirección", input(form.newAddress, "Ej: Colonia 455", function (v) { form.newAddress = v; })));
   }
 
-  f.appendChild(field("Tipo", segmented([["semanal", "Semanal"], ["dia", "Por día"]], form.kind, function (v) { change(function () { form.kind = v; form.total = null; }); })));
+  var kinds = el("div", "seg");
+  [["semanal", "Semanal"], ["dia", "Por día"]].forEach(function (opt) {
+    var b = button(form.kind === opt[0] ? "seg-btn is-on" : "seg-btn", opt[1], function () { change(function () { form.kind = opt[0]; }); });
+    b.setAttribute("aria-pressed", String(form.kind === opt[0]));
+    kinds.appendChild(b);
+  });
+  f.appendChild(kinds);
 
   if (form.kind === "semanal") {
-    var weeks = [];
-    if (weekDates(0).length) weeks.push([0, "Esta semana"]);
-    weeks.push([1, "Próxima semana"]);
-    f.appendChild(field("Semana", segmented(weeks, form.week, function (v) {
-      change(function () {
-        form.week = v; form.total = null; form.weekDays = {};
-        weekDates(v).forEach(function (d) { form.weekDays[d] = true; });
-      });
-    })));
     f.appendChild(field("Menú", menuSelect(form.menuId, function (id) { form.menuId = id; }, "Menú de la semana")));
-    var chips = el("div", "seg wrap");
-    weekDates(form.week).forEach(function (d) {
-      var b = el("button", form.weekDays[d] ? "seg-btn is-on" : "seg-btn", DAY_NAMES[weekdayOf(d)].slice(0, 3) + " " + shortDate(d));
-      b.type = "button";
-      b.setAttribute("aria-pressed", String(!!form.weekDays[d]));
-      b.addEventListener("click", function () { change(function () { form.weekDays[d] = !form.weekDays[d]; form.total = null; }); });
-      chips.appendChild(b);
-    });
-    f.appendChild(field("Días", chips));
   } else {
     var list = el("div", "daylist");
-    weekDates(0).concat(weekDates(1)).forEach(function (d) {
+    nextDays().forEach(function (d) {
       var on = form.dayMenus[d] !== undefined;
       var row = el("div", "dayrow");
-      var b = el("button", on ? "seg-btn is-on" : "seg-btn", dayLabel(d));
-      b.type = "button";
-      b.setAttribute("aria-pressed", String(on));
-      b.addEventListener("click", function () {
+      var b = button(on ? "seg-btn is-on" : "seg-btn", dayLabel(d), function () {
         change(function () {
           if (on) delete form.dayMenus[d];
-          else form.dayMenus[d] = weekMenus()[0] ? weekMenus()[0].id : null;
-          form.total = null;
+          else form.dayMenus[d] = firstMenuId();
         });
       });
+      b.setAttribute("aria-pressed", String(on));
       row.appendChild(b);
-      if (on) row.appendChild(menuSelect(form.dayMenus[d], function (id) { form.dayMenus[d] = id; }, "Menú del " + dayLabel(d)));
+      if (on) row.appendChild(menuSelect(form.dayMenus[d], function (id) { form.dayMenus[d] = id; }, "Menú: " + dayLabel(d)));
       list.appendChild(row);
     });
-    f.appendChild(field("Elegí los días y el menú de cada uno", list));
+    f.appendChild(field("Días", list));
   }
 
-  var totalInput, totalHint;
-  function refreshTotal() { if (form.total === null) totalInput.value = String(autoTotal()); }
-  var qty = input("number", String(form.qty), "", function (v) { form.qty = v; form.total = null; refreshTotal(); });
-  qty.min = "1"; qty.max = "20";
-  f.appendChild(field("Viandas por día", qty));
-  f.appendChild(field("Nota", input("text", form.note, "Ej: sin cebolla", function (v) { form.note = v; })));
-  totalInput = input("number", String(currentTotal()), "", function (v) { form.total = v; });
-  totalInput.min = "0";
-  var totalField = field("Precio total ($)", totalInput);
-  totalHint = el("span", "menu-note", "Se calcula solo: " + ctx.money(data.prices.day) + " por vianda, o " + ctx.money(data.prices.week) + " la semana completa. Podés cambiarlo.");
-  totalField.appendChild(totalHint);
-  f.appendChild(totalField);
-
-  f.appendChild(field("Cobro", segmented([["pagado", "Pagó"], ["debe", "Debe"], ["sena", "Seña"]], form.pay, function (v) { change(function () { form.pay = v; }); })));
-  if (form.pay === "sena") {
-    f.appendChild(field("¿Cuánto dejó de seña? ($)", input("number", form.sena, "Ej: 500", function (v) { form.sena = v; })));
-  }
+  var stepper = el("div", "stepper");
+  var minus = button("seg-btn", "−", function () { change(function () { form.qty = Math.max(1, form.qty - 1); }); });
+  minus.setAttribute("aria-label", "Una vianda menos");
+  var plus = button("seg-btn", "+", function () { change(function () { form.qty = Math.min(20, form.qty + 1); }); });
+  plus.setAttribute("aria-label", "Una vianda más");
+  stepper.appendChild(minus); stepper.appendChild(el("strong", "", String(form.qty))); stepper.appendChild(plus);
+  f.appendChild(field("Viandas", stepper));
 
   if (form.error) f.appendChild(el("span", "err", form.error));
+  var count = selectedDays().length;
   var acts = el("div", "mactions");
-  var save = el("button", "", form.saving ? "Guardando…" : "Guardar pedido");
+  var save = el("button", "order-cta", form.saving ? "Guardando…" : "Guardar" + (count ? " · " + ctx.money(totalFor(count, form.qty)) : ""));
   save.type = "submit"; save.disabled = form.saving;
-  var cancel = el("button", "btn-ghost", "Cancelar");
-  cancel.type = "button";
-  cancel.addEventListener("click", function () { form = null; renderForm(); });
-  acts.appendChild(save); acts.appendChild(cancel);
+  acts.appendChild(save);
+  acts.appendChild(button("btn-ghost", "Cancelar", function () { form = null; renderForm(); }));
   f.appendChild(acts);
   f.addEventListener("submit", function (e) { e.preventDefault(); submit(); });
   box.appendChild(f);
@@ -222,16 +165,12 @@ function submit() {
   if (form.saving) return;
   var days = selectedDays();
   if (!days.length) return fail("Elegí al menos un día.");
-  if (days.some(function (d) { return !d.menuId; })) return fail("Elegí un menú.");
-  var qty = Number(form.qty);
-  if (!(qty >= 1 && qty <= 20 && Math.floor(qty) === qty)) return fail("Las viandas por día van de 1 a 20.");
-  var total = Math.round(currentTotal());
-  var sena = Math.round(Number(form.sena) || 0);
-  if (form.pay === "sena" && !(sena > 0 && sena < total)) return fail("La seña tiene que ser mayor que 0 y menor que el total.");
+  if (days.some(function (d) { return !d.menuId; })) return fail("Primero elegí los menús en Configuración.");
   var isNew = form.clientId === "new";
-  if (isNew && !form.newName.trim() && !form.newAddress.trim()) return fail("Poné el nombre o la dirección del cliente nuevo.");
+  if (isNew && !form.newName.trim() && !form.newAddress.trim()) return fail("Poné el nombre o la dirección.");
 
   var current = form;
+  var total = totalFor(days.length, current.qty);
   current.saving = true; current.error = ""; renderForm();
 
   var clientReady = isNew
@@ -245,24 +184,13 @@ function submit() {
 
   clientReady
     .then(function (clientId) {
-      var body = { clientId: clientId, kind: current.kind, qty: qty, total: total, payStatus: current.pay, note: current.note.trim(), days: days };
-      if (current.pay === "sena") body.paidAmount = sena;
+      // Queda a cobrar: el pago se registra despues en la pestaña Pagos.
+      var body = { clientId: clientId, kind: current.kind, qty: current.qty, total: total, payStatus: "debe", days: days };
       return ctx.api("POST", "/orders", body).then(function (state) {
         form = null;
         ctx.applyState(state);
-        var client = clientById(clientId);
-        var lines = days.map(function (d) {
-          var menu = data.menus.filter(function (m) { return m.id === d.menuId; })[0];
-          return "• " + dayLabel(d.date) + ": " + (menu ? menu.name : "") + (qty > 1 ? " x" + qty : "");
-        });
-        var pay = current.pay === "pagado" ? "Ya está pago." : current.pay === "sena" ? "Dejaste " + ctx.money(sena) + ", queda " + ctx.money(total - sena) + "." : "Queda pendiente de pago.";
-        confirmation = {
-          name: client.name,
-          sent: false,
-          text: "Hola " + client.name + ", tu pedido quedó anotado:\n" + lines.join("\n") + "\nTotal: " + ctx.money(total) + ". " + pay + "\nSanti"
-        };
+        saved = "Pedido de " + clientById(clientId).name + " guardado ✓";
         renderForm();
-        document.getElementById("orderbox").scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
     })
     .catch(function (e) {
@@ -272,22 +200,52 @@ function submit() {
 
 function payLabel(status) { return status === "pagado" ? "Pagado" : status === "sena" ? "Con seña" : "Debe"; }
 
+// Lista de pedidos (el mas nuevo primero), una tarjeta corta por pedido.
+function renderOrderList() {
+  var box = document.getElementById("orderlist");
+  box.innerHTML = "";
+  var groups = {};
+  data.orders.forEach(function (o) { (groups[o.orderId] = groups[o.orderId] || []).push(o); });
+  var ids = Object.keys(groups).map(Number).sort(function (a, b) { return b - a; });
+  if (!ids.length) {
+    box.appendChild(el("div", "empty", "No hay pedidos."));
+    return;
+  }
+  ids.forEach(function (id) {
+    var rows = groups[id];
+    var first = rows[0];
+    var client = clientById(first.clientId);
+    if (!client) return;
+    var what = first.kind === "semanal"
+      ? "Semanal · " + first.menuName
+      : rows.map(function (o) { return dayLabel(o.date) + ": " + o.menuName; }).join(" · ");
+    var item = el("div", "order-card");
+    var head = el("div", "pay-row");
+    var main = el("div", "pay-main");
+    main.appendChild(el("span", "name", client.name + (first.qty > 1 ? " ×" + first.qty : "")));
+    main.appendChild(el("span", "pay-meta", what));
+    var side = el("div", "side");
+    side.appendChild(el("span", "pay-amount", ctx.money(first.total)));
+    side.appendChild(el("span", "tag tag-" + first.payStatus, payLabel(first.payStatus)));
+    head.appendChild(main); head.appendChild(side);
+    item.appendChild(head);
+    box.appendChild(item);
+  });
+}
+
 function renderKitchen() {
   var box = document.getElementById("kitchen");
   box.innerHTML = "";
   var dates = data.orders.map(function (o) { return o.date; }).filter(function (d, i, all) { return all.indexOf(d) === i; });
   if (!dates.length) {
-    box.appendChild(el("div", "empty", "Todavía no hay pedidos. Cargá uno con “+ Nuevo pedido”."));
+    box.appendChild(el("div", "empty", "No hay pedidos."));
     return;
   }
   if (dates.indexOf(kitchenDay) === -1) kitchenDay = dates[0];
 
   var chips = el("div", "seg scroll");
   dates.forEach(function (d) {
-    var b = el("button", d === kitchenDay ? "seg-btn is-on" : "seg-btn", dayLabel(d));
-    b.type = "button";
-    b.addEventListener("click", function () { kitchenDay = d; renderKitchen(); });
-    chips.appendChild(b);
+    chips.appendChild(button(d === kitchenDay ? "seg-btn is-on" : "seg-btn", dayLabel(d), function () { kitchenDay = d; renderKitchen(); }));
   });
   box.appendChild(chips);
 
@@ -297,7 +255,7 @@ function renderKitchen() {
   rows.forEach(function (o) { counts[o.menuName] = (counts[o.menuName] || 0) + o.qty; total += o.qty; });
 
   var head = el("div", "total");
-  head.appendChild(el("span", "", "Viandas a preparar"));
+  head.appendChild(el("span", "", "Viandas"));
   head.appendChild(el("strong", "", String(total)));
   box.appendChild(head);
 
@@ -310,7 +268,6 @@ function renderKitchen() {
   });
   box.appendChild(grid);
 
-  box.appendChild(el("h3", "chart-title", "Entregas"));
   var list = el("div", "pay-list");
   rows.forEach(function (o) {
     var client = clientById(o.clientId);
@@ -321,82 +278,75 @@ function renderKitchen() {
     main.appendChild(el("span", "name", client.name));
     if (client.address && client.address !== client.name) main.appendChild(el("span", "pay-meta", client.address));
     main.appendChild(el("span", "pay-meta", o.menuName + (o.note ? " · " + o.note : "")));
-    var side = el("div", "side");
-    side.appendChild(el("span", "pay-amount", "x" + o.qty));
-    side.appendChild(el("span", "tag tag-" + o.payStatus, payLabel(o.payStatus)));
-    row.appendChild(main); row.appendChild(side);
+    row.appendChild(main); row.appendChild(el("span", "pay-amount", "×" + o.qty));
     item.appendChild(row);
     list.appendChild(item);
   });
   box.appendChild(list);
 }
 
-// Pestaña Pedidos: todos los pedidos con entregas pendientes, el mas nuevo
-// primero, con sus dias, total y estado de cobro.
-function renderOrderList() {
-  var box = document.getElementById("orderlist");
+// Precios, en Configuracion.
+function renderPrices() {
+  var box = document.getElementById("prices");
+  // Mientras se escribe no se redibuja (se perderia lo tipeado).
+  if (box.contains(document.activeElement)) return;
   box.innerHTML = "";
-  var groups = {};
-  data.orders.forEach(function (o) { (groups[o.orderId] = groups[o.orderId] || []).push(o); });
-  var ids = Object.keys(groups).map(Number).sort(function (a, b) { return b - a; });
-  if (!ids.length) {
-    box.appendChild(el("div", "empty", "Todavía no hay pedidos. Cargá el primero con “+ Nuevo pedido”."));
-    return;
+  var f = el("form", "orderform");
+  f.appendChild(el("span", "mtitle", "Precios"));
+  function number(value) {
+    var node = el("input");
+    node.type = "number"; node.min = "1"; node.value = String(value); node.inputMode = "numeric";
+    return node;
   }
-  ids.forEach(function (id) {
-    var rows = groups[id];
-    var first = rows[0];
-    var client = clientById(first.clientId);
-    if (!client) return;
-    var item = el("div", "order-card");
-    var head = el("div", "pay-row");
-    var main = el("div", "pay-main");
-    main.appendChild(el("span", "name", client.name));
-    main.appendChild(el("span", "pay-meta", (first.kind === "semanal" ? "Semanal" : "Por día") + " · " + first.qty + (first.qty === 1 ? " vianda" : " viandas") + " por día"));
-    var side = el("div", "side");
-    side.appendChild(el("span", "pay-amount", ctx.money(first.total)));
-    side.appendChild(el("span", "tag tag-" + first.payStatus, payLabel(first.payStatus)));
-    head.appendChild(main); head.appendChild(side);
-    item.appendChild(head);
-    var days = el("ul", "hist-list");
-    rows.forEach(function (o) {
-      var li = el("li");
-      li.appendChild(el("span", "hist-day", dayLabel(o.date)));
-      li.appendChild(el("span", "hist-dish", o.menuName));
-      days.appendChild(li);
-    });
-    item.appendChild(days);
-    if (first.note) item.appendChild(el("span", "menu-note", "Nota: " + first.note));
-    box.appendChild(item);
+  var day = number(data.prices.day);
+  var week = number(data.prices.week);
+  f.appendChild(field("Vianda por día ($)", day));
+  f.appendChild(field("Semana completa ($)", week));
+  var msg = el("span", "err", "");
+  msg.hidden = true;
+  var save = el("button", "", "Guardar precios");
+  save.type = "submit";
+  f.appendChild(msg); f.appendChild(save);
+  f.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var priceDay = Math.round(Number(day.value));
+    var priceWeek = Math.round(Number(week.value));
+    if (!(priceDay > 0 && priceWeek > 0)) { msg.textContent = "Poné los dos precios."; msg.hidden = false; return; }
+    save.disabled = true; msg.hidden = true;
+    ctx.api("PUT", "/settings", { priceDay: priceDay, priceWeek: priceWeek })
+      .then(function (state) {
+        document.activeElement.blur();
+        ctx.applyState(state);
+        var done = document.querySelector("#prices button[type=submit]");
+        if (done) done.textContent = "Guardado ✓";
+      })
+      .catch(function (error) { save.disabled = false; msg.textContent = "No se pudo guardar: " + error.message; msg.hidden = false; });
   });
+  box.appendChild(f);
 }
 
-// Seccion "Pedidos que vienen" dentro de la ficha del cliente.
+// Seccion "Pedidos" dentro de la ficha del cliente.
 export function ordersSection(clientId) {
   var wrap = el("div", "hist");
-  wrap.appendChild(el("span", "menu-title", "Pedidos que vienen"));
+  wrap.appendChild(el("span", "menu-title", "Pedidos"));
   var rows = data.orders.filter(function (o) { return o.clientId === clientId; });
-  if (!rows.length) wrap.appendChild(el("span", "menu-note", "No tiene pedidos cargados."));
-  else {
+  if (rows.length) {
     var ul = el("ul", "hist-list");
     rows.forEach(function (o) {
       var li = el("li");
       li.appendChild(el("span", "hist-day", dayLabel(o.date)));
-      li.appendChild(el("span", "hist-dish", o.menuName + (o.qty > 1 ? " x" + o.qty : "")));
+      li.appendChild(el("span", "hist-dish", o.menuName + (o.qty > 1 ? " ×" + o.qty : "")));
       ul.appendChild(li);
     });
     wrap.appendChild(ul);
   }
-  var add = el("button", "btn-small", "+ Pedido para este cliente");
-  add.type = "button";
-  add.addEventListener("click", function () {
-    confirmation = null;
+  wrap.appendChild(button("btn-small", "+ Nuevo pedido", function () {
+    saved = "";
     form = newForm(clientId);
     ctx.showOrders();
     renderForm();
     document.getElementById("orderbox").scrollIntoView({ behavior: "smooth", block: "start" });
-  });
-  wrap.appendChild(add);
+  }));
   return wrap;
 }
 
@@ -409,12 +359,13 @@ export function renderOrders() {
   if (!form) renderForm();
   renderOrderList();
   renderKitchen();
+  renderPrices();
 }
 export function setupOrders(context) {
   ctx = context;
   document.getElementById("ordertoggle").addEventListener("click", function () {
     if (!data.today) return;
-    confirmation = null;
+    saved = "";
     form = newForm();
     renderForm();
   });

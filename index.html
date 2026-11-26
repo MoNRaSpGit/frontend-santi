@@ -12,12 +12,11 @@
 <main>
   <header>
     <h1>Santi</h1>
-    <p class="sub">Ejemplo con datos de mentira, guardados en el servidor. En Clientes, tocá uno para ver su menú de hoy.</p>
   </header>
   <p class="status" id="status" hidden></p>
   <div class="search">
     <label for="search">Buscar cliente</label>
-    <input id="search" type="search" placeholder="Nombre o calle, por ejemplo Avenida 18 de Julio" autocomplete="off">
+    <input id="search" type="search" placeholder="Nombre o calle" autocomplete="off">
   </div>
   <div id="results" aria-live="polite"></div>
   <div class="tabs" role="tablist">
@@ -29,7 +28,7 @@
       <button type="button" class="tab more-btn" id="more-btn" aria-haspopup="true" aria-expanded="false" aria-label="Más secciones">☰</button>
       <div class="more-menu" id="more-menu" hidden>
         <button type="button" class="more-item" role="tab" id="tab-panel" aria-selected="false">Panel</button>
-        <button type="button" class="more-item" role="tab" id="tab-menu" aria-selected="false">Menú de la semana</button>
+        <button type="button" class="more-item" role="tab" id="tab-menu" aria-selected="false">Configuración</button>
         <button type="button" class="more-item" role="tab" id="tab-historial" aria-selected="false">Historial de pagos</button>
       </div>
     </div>
@@ -37,16 +36,17 @@
   <div class="pane" id="pane-pedidos">
     <button type="button" class="order-cta" id="ordertoggle">+ Nuevo pedido</button>
     <div id="orderbox" aria-live="polite"></div>
-    <h3 class="chart-title">Pedidos registrados</h3>
     <div class="pay-list" id="orderlist"></div>
   </div>
   <div class="pane" id="pane-pagos" hidden>
     <div class="total"><span>Nos deben en total</span><strong id="total">$ 0</strong></div>
     <ul id="list"></ul>
-    <button type="button" class="reset" id="reset">Reiniciar ejemplo</button>
   </div>
   <div class="pane" id="pane-menu" hidden>
+    <div id="prices"></div>
+    <h3 class="chart-title">Menú de la semana</h3>
     <div id="menus" style="display:flex;flex-direction:column;gap:10px"></div>
+    <button type="button" class="reset" id="reset">Reiniciar ejemplo</button>
   </div>
   <div class="pane" id="pane-clientes" hidden>
     <button type="button" id="addtoggle">+ Ingresar cliente</button>
@@ -59,7 +59,6 @@
         <label for="add-addr">Calle o descripción</label>
         <input id="add-addr" type="text" autocomplete="off" placeholder="Ej: Avenida 18 de Julio 1234, casa verde">
       </div>
-      <span class="menu-note">Si dejás el nombre vacío, el cliente se llama como la calle.</span>
       <span class="err" id="add-err" hidden></span>
       <div class="mactions">
         <button type="submit">Guardar cliente</button>

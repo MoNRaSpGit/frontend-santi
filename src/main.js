@@ -116,7 +116,7 @@ function payItem(c, pay, idx, showName) {
     var bw = document.createElement("div");
     bw.className = "bubble-wrap";
     var to = document.createElement("span");
-    to.className = "bubble-to"; to.textContent = "Mensaje para " + c.name + " (vista previa, no se manda de verdad)";
+    to.className = "bubble-to"; to.textContent = "Mensaje para " + c.name;
     var bb = document.createElement("div");
     bb.className = "bubble"; bb.textContent = receiptText(c, pay);
     var sent = !!receiptSent[key];
@@ -258,7 +258,7 @@ function renderClientes() {
       var hist = document.createElement("div");
       hist.className = "hist";
       var ht = document.createElement("span");
-      ht.className = "menu-title"; ht.textContent = "Historial de pedidos (Editar: elegís entre las 3 opciones)";
+      ht.className = "menu-title"; ht.textContent = "Esta semana";
       var hl = document.createElement("ul");
       hl.className = "hist-list";
       (histData[c.id] || []).forEach(function (h, idx) {
@@ -717,7 +717,7 @@ document.getElementById("tab-menu").addEventListener("click", function () { show
 document.getElementById("tab-cocina").addEventListener("click", function () { showTab("cocina"); });
 document.getElementById("tab-pedidos").addEventListener("click", function () { showTab("pedidos"); });
 setupOrders({ api: api, applyState: applyState, money: money, showOrders: function () { showTab("pedidos"); } });
-setStatus("Cargando datos... (si el servidor estaba dormido puede tardar unos segundos)");
+setStatus("Cargando…");
 fetch(API_BASE + "/santi/state")
   .then(function (res) { if (!res.ok) throw new Error("Error " + res.status); return res.json(); })
   .then(function (state) { applyState(state); setStatus(""); })
