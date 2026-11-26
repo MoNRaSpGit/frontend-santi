@@ -216,3 +216,13 @@ button:disabled { background: transparent; color: var(--muted); cursor: default;
 
 .order-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .order-card .hist-list .hist-day { min-width: 108px; }
+
+/* ---- Actualizacion (cartel y pantalla de Logic Lab) ---- */
+.update-banner { position: fixed; left: 16px; bottom: 16px; z-index: 60; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(360px, calc(100vw - 32px)); padding: 12px 12px 12px 16px; background: var(--surface); color: var(--fg); border: 2px solid var(--accent); border-radius: 14px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3); }
+.update-overlay { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 24px; background: #000; color: #fff; }
+.update-overlay-card { width: min(380px, 100%); display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.update-overlay-card img { width: auto; height: min(52vh, 420px); max-width: 100%; border-radius: 12px; }
+.update-overlay-card strong { font-size: 20px; }
+.update-overlay-card span { font-variant-numeric: tabular-nums; opacity: 0.85; }
+.update-progress { width: 100%; height: 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.2); overflow: hidden; }
+.update-progress-fill { height: 100%; width: 0; border-radius: 999px; background: #3fae78; transition: width 0.08s linear; }

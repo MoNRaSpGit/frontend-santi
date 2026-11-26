@@ -1,4 +1,5 @@
 import "./styles.css";
+import { setupUpdates } from "./actualizacion.js";
 import { ordersSection, renderOrders, setOrdersState, setupOrders } from "./pedidos.js";
 
 var openId = null;
@@ -721,3 +722,4 @@ fetch(API_BASE + "/santi/state")
   .then(function (res) { if (!res.ok) throw new Error("Error " + res.status); return res.json(); })
   .then(function (state) { applyState(state); setStatus(""); })
   .catch(function (e) { setStatus("No se pudo cargar: " + e.message + ". Probá recargar la página.", true); });
+setupUpdates();
